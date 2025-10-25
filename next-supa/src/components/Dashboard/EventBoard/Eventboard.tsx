@@ -1,19 +1,21 @@
+"use client";
+
 import React, { useState } from "react";
 import { TopBar } from "../TopBar";
 import { EventGrid } from "./EventGrid";
 import { EventCardWide } from "./EventCardWide";
 import { EventStatsCard } from "./EventStats";
 import { UpcomingEvents } from "./UpcomingEvent";
-import { eventNames } from "process";
 
-interface UpcomingEventsProps {
-    className?: string;
+interface EventboardProps {
+  className?: string;
 }
 
-
-
-
-export const Eventboard = ({ className }: UpcomingEventsProps) => {
+export const Eventboard = ({ className }: EventboardProps) => {
+  const [events] = useState([
+    { id: "#EVT004", name: "Hackathon 2025", date: "Nov 18th", attendees: 230 },
+    { id: "#EVT005", name: "Dev Meetup", date: "Nov 25th", attendees: 60 },
+  ]);
 
   return (
     <div className={`grid bg-white grid-cols-12 gap-4 overflow-y-auto ${className}`}>
@@ -22,7 +24,6 @@ export const Eventboard = ({ className }: UpcomingEventsProps) => {
         <TopBar />
       </div>
 
-   
       {/* Event Grid */}
       <div className="col-span-12">
         <EventGrid />
@@ -32,11 +33,10 @@ export const Eventboard = ({ className }: UpcomingEventsProps) => {
       <EventCardWide className="col-span-12 md:col-span-8" />
       <EventStatsCard className="col-span-12 md:col-span-4" />
 
-         {/* Upcoming Events */}
+      {/* Upcoming Events */}
       <div className="col-span-12">
-        <UpcomingEvents  events={[]} />
+        <UpcomingEvents events={events} />
       </div>
-
 
       {/* Footer / Last Updated */}
       <div className="col-span-12 p-4 border-t">
