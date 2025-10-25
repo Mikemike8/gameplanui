@@ -1,22 +1,22 @@
-import { redirect } from 'next/navigation'
+import { Dashboard } from "@/components/Dashboard/Dashboard";
+interface ProtectedPageProps {
+  email: string;
+}
 
-import { LogoutButton } from '@/components/logout-button'
-import { createClient } from '@/lib/server'
-
-export default async function ProtectedPage() {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase.auth.getClaims()
-  if (error || !data?.claims) {
-    redirect('/auth/login')
-  }
-
+// app/protected/page.tsx
+export default function ProtectedPage({ email }: ProtectedPageProps) {
   return (
-    <div className="flex h-svh w-full items-center justify-center gap-2">
-      <p>
-        Hello <span>{data.claims.email}</span>
-      </p>
-      <LogoutButton />
+    <div className="">
+       <div className="flex flex-col w-full h-full overflow-y-auto ">
+      {/* Example: Use the user's email in your content */}
+      <div className="border-b border-stone-300 pb-2 mb-4">
+        <h1 className="text-xl font-semibold">Welcome back, {email} 👋</h1>
+        <p className="text-stone-500 text-sm">
+          Here’s your dashboard summary and chat feed.
+        </p>
+      </div>
+      <Dashboard />
     </div>
-  )
+    </div>
+  );
 }
