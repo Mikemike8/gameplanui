@@ -2,10 +2,10 @@
   "name": "next-supa",
   "version": "0.1.0",
   "private": true,
- "scripts": {
-  "dev": "next dev -H 0.0.0.0 -p $PORT",
+"scripts": {
+  "dev": "cross-env PORT=$PORT next dev -H 0.0.0.0",
   "build": "NEXT_IGNORE_ESLINT_WARNINGS=true next build",
-  "start": "next start -H 0.0.0.0 -p $PORT",
+  "start": "cross-env PORT=$PORT next start -H 0.0.0.0",
   "lint": "eslint"
 }
 ,
