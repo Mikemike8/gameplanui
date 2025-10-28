@@ -1,28 +1,25 @@
 // app/protected/layout.tsx
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar/Sidebar";
 import { createClient } from "@/lib/server";
-
-export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+import { Navbar } from "@/components/Navbar/Navbar";
+export default async function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
 
   if (error || !data?.claims) {
-    redirect("/auth/login"); // redirect if not authenticated
+    redirect("/auth/login");
   }
 
   const email = data.claims.email;
 
   return (
-    <div className="flex w-full h-screen overflow-hidden">
-      {/* Sidebar appears on ALL protected pages */}
-      <aside className="w-[260px] border-r border-stone-300 bg-white p-4">
-        <Sidebar email={email} />
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto p-6">
-        {children}</main>
+    <div className="flex flex-col w-full h-screen overflow-hidden">
+      <Navbar email={email} />
+      <main className="flex-1 overflow-auto p-0.5 bg-stone-50">{children}</main>
     </div>
   );
 }
