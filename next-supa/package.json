@@ -2,12 +2,13 @@
   "name": "next-supa",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "NEXT_IGNORE_ESLINT_WARNINGS=true next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
+ "scripts": {
+  "dev": "next dev -H 0.0.0.0 -p $PORT",
+  "build": "NEXT_IGNORE_ESLINT_WARNINGS=true next build",
+  "start": "next start -H 0.0.0.0 -p $PORT",
+  "lint": "eslint"
+}
+,
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.15",
