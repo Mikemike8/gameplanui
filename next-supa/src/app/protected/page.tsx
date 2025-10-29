@@ -11,8 +11,13 @@ export default async function ProtectedPage() {
   // 2️⃣ Create Supabase server client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { 
+      cookies: { 
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {}, // No-op for server components
+      } 
+    }
   );
 
   // 3️⃣ Get the current user
@@ -20,7 +25,7 @@ export default async function ProtectedPage() {
 
   // 4️⃣ Redirect if not logged in
   if (error || !user) {
-    redirect("/auth/login");
+    redirect("/sign-in");
   }
 
   // 5️⃣ Render dashboard
@@ -31,7 +36,7 @@ export default async function ProtectedPage() {
           Welcome back, {user.email} 👋
         </h1>
         <p className="text-stone-500 text-sm">
-          Here’s your dashboard summary and chat feed.
+          Here's your dashboard summary and chat feed.
         </p>
       </div>
       <Dashboard />

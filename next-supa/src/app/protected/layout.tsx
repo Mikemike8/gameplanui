@@ -4,26 +4,35 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { Navbar } from "@/components/Navbar/Navbar";
 
-export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+export default async function ProtectedLayout({ 
+  children 
+}: { 
+  children: React.ReactNode 
+}) {
   // 1️⃣ Get the cookie store
   const cookieStore = await cookies();
 
   // 2️⃣ Create Supabase server client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll() } }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { 
+      cookies: { 
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {}, // No-op for server components
+      } 
+    }
   );
 
-  // 3️⃣ Get the current user claims
-  const { data, error } = await supabase.auth.getClaims();
+  // 3️⃣ Get the current user
+  const { data: { user }, error } = await supabase.auth.getUser();
 
   // 4️⃣ Redirect if not logged in
-  if (error || !data?.claims) {
-    redirect("/auth/login");
+  if (error || !user) {
+    redirect("/sign-in");
   }
 
-  const email = data.claims.email;
+  const email = user.email || "User";
 
   // 5️⃣ Render layout with Navbar
   return (

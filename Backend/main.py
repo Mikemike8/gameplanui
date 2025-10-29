@@ -6,8 +6,9 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, Da
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
-from typing import Optional, List
-import socketio
+from typing import Optional, List\
+#SQLAlchemy imports
+import socketio # Socket.IO server
 import enum
 import uuid
 
