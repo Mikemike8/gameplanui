@@ -5,32 +5,34 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/client";
 
 interface AccountToggleProps {
-  email?: string; // optional now since we’ll fetch from Supabase
+  email: string;
 }
 
 export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [userAvatar, setUserAvatar] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
-
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
-  // 🧩 Fetch user info on mount
   useEffect(() => {
-    const getUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error("Error fetching user:", error);
-
+    const getUserData = async () => {
+      const { data } = await supabase.auth.getUser();
       const user = data?.user;
+
       if (user) {
-        const meta = user.user_metadata;
-        setUserAvatar(meta?.avatar_url || "https://api.dicebear.com/9.x/notionists/svg");
-        setUserName(meta?.full_name || user.email || "User");
+        // Pull from user_metadata if available
+        setAvatar(
+          user.user_metadata?.avatar_url ||
+          `https://api.dicebear.com/9.x/notionists/svg?seed=${user.email}`
+        );
+        setDisplayName(
+          user.user_metadata?.full_name || user.email?.split("@")[0]
+        );
       }
     };
 
-    getUser();
+    getUserData();
   }, [supabase]);
 
   const logout = async () => {
@@ -45,12 +47,12 @@ export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
         className="flex items-center gap-2 p-1 hover:bg-stone-200 rounded transition"
       >
         <img
-          src={userAvatar ?? "https://api.dicebear.com/9.x/notionists/svg"}
+          src={avatar ?? "https://api.dicebear.com/9.x/notionists/svg"}
           alt="avatar"
           className="w-8 h-8 rounded-full bg-violet-500 shadow"
         />
         <span className="hidden sm:block text-sm font-bold truncate max-w-[120px]">
-          {userName ?? "Loading..."}
+          {displayName || email}
         </span>
         {isOpen ? (
           <FiChevronUp className="text-xs" />
