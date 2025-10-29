@@ -15,9 +15,15 @@ export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
   const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
-    const getUserData = async () => {
-      const { data } = await supabase.auth.getUser();
+useEffect(() => {
+  console.log("useEffect ran"); // <- This should always show
+
+  const getUserData = async () => {
+    console.log("Fetching user data..."); // <- This should run
+
+    const { data } = await supabase.auth.getUser();
+    console.log("Supabase user data:", data); // <- Logs what you got
+
       const user = data?.user;
 
       if (user) {
