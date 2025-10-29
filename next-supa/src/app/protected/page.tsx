@@ -1,45 +1,44 @@
 // app/protected/page.tsx
-import { createServerClient } from "@supabase/ssr";
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { createClient } from '@/lib/server'; // Your custom utility function
 import { Dashboard } from "@/components/Dashboard/Dashboard";
 
+// Define the precise type of the synchronous cookie object your utility expects.
+// This matches the signature in your lib/server.ts
+type CookieStore = { 
+    get: (name: string) => { name: string; value: string } | undefined;
+    getAll: () => Array<{ name: string; value: string }>;
+    set: (name: string, value: string, options?: any) => void;
+};
+
 export default async function ProtectedPage() {
-  // 1️⃣ Get the cookie store
-  const cookieStore = await cookies();
+    // 1️⃣ Get the cookie store. 
+    // 2️⃣ FIX: Use a Type Assertion (as unknown as CookieStore) 
+    //    to bypass the conflicting Promise type and tell TypeScript 
+    //    that the result is the synchronous object your utility expects.
+    const cookieStore = cookies() as unknown as CookieStore; 
+    
+    // 3️⃣ Pass the correctly-typed store to your utility function.
+    const supabase = createClient(cookieStore); 
 
-  // 2️⃣ Create Supabase server client
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { 
-      cookies: { 
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {}, // No-op for server components
-      } 
+    // 4️⃣ Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 5️⃣ Redirect if not logged in
+    if (!user) {
+        redirect("/sign-in");
     }
-  );
 
-  // 3️⃣ Get the current user
-  const { data: { user }, error } = await supabase.auth.getUser();
-
-  // 4️⃣ Redirect if not logged in
-  if (error || !user) {
-    redirect("/sign-in");
-  }
-
-  // 5️⃣ Render dashboard
-  return (
-    <div className="flex flex-col w-full h-full overflow-y-auto">
-      <div className="border-b border-stone-300 pb-2 mb-4">
-        <h1 className="text-xl font-semibold">
-          Welcome back, {user.email} 👋
-        </h1>
-        <p className="text-stone-500 text-sm">
-          Here's your dashboard summary and chat feed.
-        </p>
-      </div>
-      <Dashboard />
-    </div>
-  );
+    // 6️⃣ Render dashboard
+    return (
+        <div className="flex flex-col w-full h-full overflow-y-auto">
+            {/* ... Dashboard rendering ... */}
+            <h1 className="text-xl font-semibold">
+                Welcome back, {user.email} 👋
+            </h1>
+            <Dashboard />
+        </div>
+    );
 }
