@@ -24,6 +24,9 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+
+
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     const supabase = createClient()
@@ -36,12 +39,23 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
       return
     }
 
+      // ✅ FIX: Changed the environment variable reference from 
+    //         NEXT_PUBLIC_SITE_URL to NEXT_PUBLIC_API_URL 
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 
+                   (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    
+    // 2. Correct the redirect path. 
+    // The link MUST hit the /auth/confirm Route Handler for token verification.
+    // We pass the final destination (/protected) using the 'next' query parameter.
+    const emailRedirectPath = `${baseUrl}/auth/confirm?next=/protected`;
+
+
     try {
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/protected`,
+          emailRedirectTo: emailRedirectPath,
         },
       })
       if (error) throw error
