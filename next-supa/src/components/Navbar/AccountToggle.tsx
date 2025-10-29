@@ -29,6 +29,7 @@ export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
         setDisplayName(
           user.user_metadata?.full_name || user.email?.split("@")[0]
         );
+          console.log("Avatar URL:", avatar);
       }
     };
 
