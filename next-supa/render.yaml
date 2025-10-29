@@ -4,10 +4,10 @@ services:
     env: node
     plan: free
     buildCommand: npm ci && npm run build
-    startCommand: npm run dev
+    startCommand: npm start
     envVars:
       - key: NODE_VERSION
-        value: 18.17.0
+        value: 20.11.0
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
