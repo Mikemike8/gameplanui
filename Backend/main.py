@@ -139,7 +139,7 @@ sio = socketio.AsyncServer(
     cors_allowed_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://claude.ai"
+        "https://gameplanuipro.onrender.com" 
     ]
 )
 
@@ -151,7 +151,7 @@ app = FastAPI(title="Team Chat API")
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://claude.ai"
+    "https://gameplanuipro.onrender.com" 
 ]
 
 app.add_middleware(
