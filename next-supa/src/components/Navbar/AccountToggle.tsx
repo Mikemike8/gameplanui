@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/client";
+import { useUser } from '@auth0/nextjs-auth0/client';
 
 interface AccountToggleProps {
   email: string;
@@ -10,41 +10,25 @@ interface AccountToggleProps {
 
 export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [avatar, setAvatar] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const { user, isLoading } = useUser();
 
-useEffect(() => {
-  console.log("useEffect ran"); // <- This should always show
+  // If loading, show placeholder
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 p-1">
+        <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
+        <div className="hidden sm:block w-20 h-4 bg-gray-200 animate-pulse rounded" />
+      </div>
+    );
+  }
 
-  const getUserData = async () => {
-    console.log("Fetching user data..."); // <- This should run
+  // Get user info from Auth0
+  const avatar = user?.picture || `https://api.dicebear.com/9.x/notionists/svg?seed=${email}`;
+  const displayName = user?.name || user?.nickname || email.split("@")[0];
 
-    const { data } = await supabase.auth.getUser();
-    console.log("Supabase user data:", data); // <- Logs what you got
-
-      const user = data?.user;
-
-      if (user) {
-        // Pull from user_metadata if available
-        setAvatar(
-          user.user_metadata?.avatar_url ||
-          `https://api.dicebear.com/9.x/notionists/svg?seed=${user.email}`
-        );
-        setDisplayName(
-          user.user_metadata?.full_name || user.email?.split("@")[0]
-        );
-          console.log("Avatar URL:", avatar);
-      }
-    };
-
-    getUserData();
-  }, [supabase]);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+  const logout = () => {
+    router.push('/auth/logout');  // Updated path to match new middleware setup
   };
 
   return (
@@ -54,12 +38,12 @@ useEffect(() => {
         className="flex items-center gap-2 p-1 hover:bg-stone-200 rounded transition"
       >
         <img
-          src={avatar ?? "https://api.dicebear.com/9.x/notionists/svg"}
+          src={avatar}
           alt="avatar"
-          className="w-8 h-8 rounded-full bg-violet-500 shadow"
+          className="w-8 h-8 rounded-full bg-violet-500 shadow object-cover"  // Added object-cover to ensure the image fills the circular container without distortion
         />
         <span className="hidden sm:block text-sm font-bold truncate max-w-[120px]">
-          {displayName || email}
+          {displayName}
         </span>
         {isOpen ? (
           <FiChevronUp className="text-xs" />

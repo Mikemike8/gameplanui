@@ -1,14 +1,11 @@
-// CommandMenu.tsx
 "use client";
 
 import { Command } from "cmdk";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { FiEye, FiLink, FiLogOut, FiPhone, FiPlus } from "react-icons/fi";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/client";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
-// ✅ export it directly
 export const CommandMenu = ({
   open,
   setOpen,
@@ -18,7 +15,6 @@ export const CommandMenu = ({
 }) => {
   const [value, setValue] = useState("");
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -32,9 +28,9 @@ export const CommandMenu = ({
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+  const logout = () => {
+    // Auth0 logout endpoint
+    window.location.href = "/api/auth/logout";
   };
 
   return (

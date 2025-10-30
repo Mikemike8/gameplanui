@@ -1,40 +1,22 @@
-// app/page.tsx
+// app/page.tsx (or wherever your Home component is)
+import { auth0 } from '@/lib/auth0';  // Updated import to use the new client
+import { redirect } from 'next/navigation';
 
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { createClient } from '@/lib/server'; // Your custom utility function
-import { LoginForm } from "@/components/login-form";
+export default async function Home() {
+  const session = await auth0.getSession();  // Updated to use auth0.getSession()
 
-// Define the precise type of the object returned by cookies() 
-// (or extract it from your lib/server.ts if possible)
-type CookieStore = { 
-    get: (name: string) => { name: string; value: string } | undefined;
-    getAll: () => Array<{ name: string; value: string }>;
-    set: (name: string, value: string, options?: any) => void;
-};
-
-export default async function IndexPage() {
-  // 1. Get the cookie store. 
-  // 2. ✅ FIX: Use a Type Assertion (as CookieStore) to tell TypeScript 
-  //    that the result is the synchronous object your utility expects.
-  const cookieStore = cookies() as unknown as CookieStore; 
-  
-  // 3. Pass the correctly-typed store to your utility function.
-  //    This resolves the Argument of type 'Promise<...>' error.
-  const supabase = createClient(cookieStore); 
-  
-  // 4. Perform the session check
-  const { data: { user } } = await supabase.auth.getUser(); 
-
-  if (user) {
+  if (session?.user) {  // Check for session.user to confirm authenticated
     redirect('/protected');
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <LoginForm />
-      </div>
-    </div>
+    <main>
+      <a href="/auth/login?screen_hint=signup">  {/* Updated path from /api/auth to /auth */}
+        <button>Sign Up</button>
+      </a>
+      <a href="/auth/login">  {/* Updated path from /api/auth to /auth */}
+        <button>Log In</button>
+      </a>
+    </main>
   );
 }
