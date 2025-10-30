@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { v4 as uuidv4 } from 'uuid';
+import { useUser } from '@auth0/nextjs-auth0/client';  // Import Auth0 client hook for user info
 
 interface User {
   id: string;
@@ -59,6 +60,7 @@ const TeamChannelInterface: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<any>(null);
+  const { user: auth0User, isLoading: authLoading } = useUser();  // Get Auth0 user info
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -82,9 +84,15 @@ const TeamChannelInterface: React.FC = () => {
 
   // 📥 Load initial data
   useEffect(() => {
-    loadCurrentUser();
     loadChannels();
   }, []);
+
+  // 📥 Sync Auth0 user to backend when Auth0 user loads
+  useEffect(() => {
+    if (authLoading || !auth0User) return;  // Wait for Auth0 user to load
+
+    loadCurrentUser();  // Now load/sync with backend using Auth0 info
+  }, [auth0User, authLoading]);
 
   // 📥 Load messages when channel changes
   useEffect(() => {
@@ -97,23 +105,30 @@ const TeamChannelInterface: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // 👤 Create or load current user
+  // 👤 Create or load current user using Auth0 info
   const loadCurrentUser = async () => {
+    if (!auth0User) return;  // Ensure Auth0 user is available
+
     try {
-      // Try to get existing user or create new one
+      // Use Auth0 user's email or sub as identifier
+      const authEmail = auth0User.email || 'anonymous@example.com';
+      const authName = auth0User.name || auth0User.nickname || 'Anonymous';
+      const authAvatar = auth0User.picture || `https://api.dicebear.com/7.x/notionists/svg?seed=${authEmail}`;
+
+      // Try to get existing user or create new one using Auth0 details
       const response = await fetch(`${API_URL}/users`);
       const users = await response.json();
       
-      let user = users.find((u: any) => u.email === 'you@example.com');
+      let user = users.find((u: any) => u.email === authEmail);
       
       if (!user) {
         const createResponse = await fetch(`${API_URL}/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: 'You',
-            email: 'you@example.com',
-            avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=You'
+            name: authName,
+            email: authEmail,
+            avatar: authAvatar
           })
         });
         user = await createResponse.json();
