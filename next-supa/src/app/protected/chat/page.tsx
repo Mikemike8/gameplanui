@@ -62,9 +62,7 @@ const TeamChannelInterface: React.FC = () => {
   const pollingIntervalRef = useRef<any>(null);
   const { user: auth0User, isLoading: authLoading } = useUser();  // Get Auth0 user info
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  
 
   // 🔄 Poll for new messages (fallback without WebSocket)
   useEffect(() => {
@@ -101,9 +99,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   }, [currentChannel]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // 👤 Create or load current user using Auth0 info
   const loadCurrentUser = async () => {
