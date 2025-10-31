@@ -2,7 +2,6 @@
 
 import React from "react";
 
-// Dashboard components
 import { StatCards } from "./StatCards";
 import { ActivityGraph } from "./ActivityGraph";
 import { UsageRadar } from "./UsageRadar";

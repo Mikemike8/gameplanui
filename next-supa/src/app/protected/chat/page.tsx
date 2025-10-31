@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Hash, Smile, Paperclip, MoreVertical, Search, Users, Pin, Reply, Plus, X, Settings, PinOff } from 'lucide-react';
+import { Send, Hash, Smile, Paperclip, MoreVertical, Search, Users, Pin, Reply, Plus, X, Settings, PinOff, Menu } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { v4 as uuidv4 } from 'uuid';
-import { useUser } from '@auth0/nextjs-auth0/client';  // Import Auth0 client hook for user info
+import { useUser } from '@auth0/nextjs-auth0/client';
 
 interface User {
   id: string;
@@ -58,16 +58,13 @@ const TeamChannelInterface: React.FC = () => {
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [isPrivateChannel, setIsPrivateChannel] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<any>(null);
-  const { user: auth0User, isLoading: authLoading } = useUser();  // Get Auth0 user info
+  const { user: auth0User, isLoading: authLoading } = useUser();
 
-  
-
-  // 🔄 Poll for new messages (fallback without WebSocket)
   useEffect(() => {
     if (currentChannel) {
-      // Poll every 2 seconds for new messages
       pollingIntervalRef.current = setInterval(() => {
         loadMessages();
       }, 2000);
@@ -80,37 +77,29 @@ const TeamChannelInterface: React.FC = () => {
     };
   }, [currentChannel]);
 
-  // 📥 Load initial data
   useEffect(() => {
     loadChannels();
   }, []);
 
-  // 📥 Sync Auth0 user to backend when Auth0 user loads
   useEffect(() => {
-    if (authLoading || !auth0User) return;  // Wait for Auth0 user to load
-
-    loadCurrentUser();  // Now load/sync with backend using Auth0 info
+    if (authLoading || !auth0User) return;
+    loadCurrentUser();
   }, [auth0User, authLoading]);
 
-  // 📥 Load messages when channel changes
   useEffect(() => {
     if (currentChannel) {
       loadMessages();
     }
   }, [currentChannel]);
 
-
-  // 👤 Create or load current user using Auth0 info
   const loadCurrentUser = async () => {
-    if (!auth0User) return;  // Ensure Auth0 user is available
+    if (!auth0User) return;
 
     try {
-      // Use Auth0 user's email or sub as identifier
       const authEmail = auth0User.email || 'anonymous@example.com';
       const authName = auth0User.name || auth0User.nickname || 'Anonymous';
       const authAvatar = auth0User.picture || `https://api.dicebear.com/7.x/notionists/svg?seed=${authEmail}`;
 
-      // Try to get existing user or create new one using Auth0 details
       const response = await fetch(`${API_URL}/users`);
       const users = await response.json();
       
@@ -140,14 +129,12 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 📥 Load channels
   const loadChannels = async () => {
     try {
       const response = await fetch(`${API_URL}/channels`);
       const data = await response.json();
       
       if (data.length === 0) {
-        // Create default channel if none exist
         await createDefaultChannel();
       } else {
         setChannels(data.map((ch: any) => ({
@@ -165,7 +152,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 📥 Load messages for current channel
   const loadMessages = async () => {
     if (!currentChannel) return;
     
@@ -187,7 +173,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 🆕 Create default channel
   const createDefaultChannel = async () => {
     try {
       const response = await fetch(`${API_URL}/channels`, {
@@ -215,7 +200,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 📤 Send message
   const handleSendMessage = async () => {
     const messageContent = currentMessage.trim();
     if (!messageContent || !currentUser || !currentChannel) return;
@@ -258,7 +242,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 🆕 Create channel
   const handleCreateChannel = async () => {
     if (!newChannelName.trim()) return;
 
@@ -296,7 +279,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 📌 Toggle pin message
   const togglePinMessage = async (messageId: string) => {
     if (!currentUser) return;
     
@@ -330,7 +312,6 @@ const TeamChannelInterface: React.FC = () => {
     }
   };
 
-  // 👍 Add reaction
   const addReaction = async (messageId: string, emoji: string) => {
     if (!currentUser) return;
 
@@ -379,24 +360,41 @@ const TeamChannelInterface: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-stone-50 text-stone-800">
+    <div className="flex h-screen bg-stone-50 text-stone-800 flex-col md:flex-row overflow-hidden">
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="md:hidden p-3 bg-white border-b border-stone-200 text-stone-800 flex items-center justify-between shrink-0"
+      >
+        <Menu className="w-5 h-5" />
+        <span className="text-sm font-semibold ml-2 truncate">{currentChannel.name}</span>
+      </button>
+
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-stone-300 flex flex-col">
-        <div className="p-4 border-b border-stone-200">
-          <h1 className="text-xl font-bold text-stone-800">Team Workspace</h1>
+      <div className={`fixed md:relative z-50 md:z-0 inset-0 md:inset-auto w-64 bg-white border-r border-stone-300 flex flex-col h-full transition-transform duration-300 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
+        <div className="p-3 md:p-4 border-b border-stone-200 flex items-center justify-between shrink-0">
+          <h1 className="text-lg md:text-xl font-bold text-stone-800">Team Workspace</h1>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden p-1 hover:bg-stone-100 rounded"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
         
-        <div className="flex-1 overflow-y-scroll">
-          <div className="p-2">
-            <div className="flex items-center justify-between px-2 py-1 text-sm text-stone-500 mb-1">
+        <div className="flex-1 overflow-y-auto min-w-0">
+          <div className="p-2 md:p-3">
+            <div className="flex items-center justify-between px-2 py-1 text-xs md:text-sm text-stone-500 mb-2">
               <span className="font-semibold">Channels</span>
               <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
                 <DialogTrigger asChild>
-                  <button className="hover:text-stone-800">
+                  <button className="hover:text-stone-800 p-1">
                     <Plus className="w-4 h-4" />
                   </button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="w-[90vw] sm:w-full">
                   <DialogHeader>
                     <DialogTitle>Create New Channel</DialogTitle>
                     <DialogDescription>Create a new channel for your team</DialogDescription>
@@ -409,6 +407,7 @@ const TeamChannelInterface: React.FC = () => {
                         placeholder="e.g. project-alpha"
                         value={newChannelName}
                         onChange={(e) => setNewChannelName(e.target.value)}
+                        className="text-sm"
                       />
                     </div>
                     <div className="space-y-2">
@@ -418,6 +417,7 @@ const TeamChannelInterface: React.FC = () => {
                         placeholder="What's this channel about?"
                         value={newChannelDescription}
                         onChange={(e) => setNewChannelDescription(e.target.value)}
+                        className="text-sm"
                       />
                     </div>
                     <div className="flex items-center space-x-2">
@@ -428,12 +428,12 @@ const TeamChannelInterface: React.FC = () => {
                         onChange={(e) => setIsPrivateChannel(e.target.checked)}
                         className="w-4 h-4"
                       />
-                      <Label htmlFor="private-channel">Make private</Label>
+                      <Label htmlFor="private-channel" className="text-sm">Make private</Label>
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsCreateChannelOpen(false)}>Cancel</Button>
-                    <Button onClick={handleCreateChannel} className="bg-green-600 hover:bg-green-700">Create</Button>
+                  <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+                    <Button variant="outline" onClick={() => setIsCreateChannelOpen(false)} className="text-sm">Cancel</Button>
+                    <Button onClick={handleCreateChannel} className="bg-green-600 hover:bg-green-700 text-sm">Create</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -443,14 +443,17 @@ const TeamChannelInterface: React.FC = () => {
               {channels.map((channel) => (
                 <div
                   key={channel.id}
-                  onClick={() => setCurrentChannel(channel)}
-                  className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer ${
+                  onClick={() => {
+                    setCurrentChannel(channel);
+                    setSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-2 py-2 md:py-1.5 rounded cursor-pointer text-xs md:text-sm transition-colors ${
                     currentChannel.id === channel.id ? 'bg-green-100 text-green-700' : 'hover:bg-stone-100 text-stone-600'
                   }`}
                 >
                   <div className="flex items-center flex-1 min-w-0">
-                    <Hash className="w-4 h-4 mr-2 shrink-0" />
-                    <span className="text-sm truncate">{channel.name}</span>
+                    <Hash className="w-3 h-3 md:w-4 md:h-4 mr-2 shrink-0" />
+                    <span className="truncate">{channel.name}</span>
                   </div>
                 </div>
               ))}
@@ -459,58 +462,67 @@ const TeamChannelInterface: React.FC = () => {
         </div>
       </div>
 
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed md:hidden inset-0 bg-black/30 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="h-16 border-b border-stone-200 flex items-center justify-between px-4 bg-white">
-          <div className="flex items-center space-x-2">
-            <Hash className="w-5 h-5 text-stone-500" />
-            <div>
-              <h2 className="font-bold text-lg text-stone-800">{currentChannel.name}</h2>
-              <p className="text-xs text-stone-500">{currentChannel.description}</p>
+        <div className="hidden md:flex h-12 md:h-16 border-b border-stone-200 items-center justify-between px-3 md:px-4 bg-white shrink-0">
+          <div className="flex items-center space-x-2 min-w-0">
+            <Hash className="w-4 h-4 md:w-5 md:h-5 text-stone-500 shrink-0" />
+            <div className="min-w-0">
+              <h2 className="font-bold text-sm md:text-lg text-stone-800 truncate">{currentChannel.name}</h2>
+              <p className="text-xs text-stone-500 truncate">{currentChannel.description}</p>
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1 md:space-x-3 shrink-0">
             <button 
               onClick={() => setShowPinnedMessages(!showPinnedMessages)}
-              className="p-2 hover:bg-stone-100 rounded text-stone-600 relative"
+              className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600 relative"
             >
-              <Pin className="w-5 h-5" />
+              <Pin className="w-4 h-4 md:w-5 md:h-5" />
               {pinnedMessages.length > 0 && (
-                <Badge className="absolute -top-1 -right-1 bg-green-600 text-white text-xs h-4 min-w-4 px-1">
+                <Badge className="absolute -top-1 -right-1 bg-green-600 text-white text-xs h-4 min-w-4 px-1 flex items-center justify-center">
                   {pinnedMessages.length}
                 </Badge>
               )}
             </button>
-            <button className="p-2 hover:bg-stone-100 rounded text-stone-600">
-              <Users className="w-5 h-5" />
+            <button className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600">
+              <Users className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <button className="p-2 hover:bg-stone-100 rounded text-stone-600">
-              <Search className="w-5 h-5" />
+            <button className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600">
+              <Search className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <button className="p-2 hover:bg-stone-100 rounded text-stone-600">
-              <Settings className="w-5 h-5" />
+            <button className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600">
+              <Settings className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
         </div>
 
         {/* Pinned Messages Panel */}
         {showPinnedMessages && pinnedMessages.length > 0 && (
-          <div className="bg-yellow-50 border-b border-yellow-200 p-3">
-            <div className="flex items-start justify-between mb-2">
-              <h3 className="text-sm font-semibold text-yellow-800 flex items-center gap-2">
-                <Pin className="w-4 h-4" />
-                Pinned Messages
+          <div className="bg-yellow-50 border-b border-yellow-200 p-2 md:p-3 shrink-0">
+            <div className="flex items-start justify-between mb-2 gap-2">
+              <h3 className="text-xs md:text-sm font-semibold text-yellow-800 flex items-center gap-1 shrink-0">
+                <Pin className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Pinned Messages</span>
+                <span className="sm:hidden">Pinned</span>
               </h3>
-              <button onClick={() => setShowPinnedMessages(false)} className="text-yellow-600 hover:text-yellow-800">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowPinnedMessages(false)} className="text-yellow-600 hover:text-yellow-800 shrink-0">
+                <X className="w-3 h-3 md:w-4 md:h-4" />
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1 overflow-x-auto">
               {pinnedMessages.map(msg => (
-                <div key={msg.id} className="text-sm text-yellow-900 bg-white rounded p-2">
-                  <span className="font-medium">{msg.user.name}:</span> {msg.content}
+                <div key={msg.id} className="text-xs md:text-sm text-yellow-900 bg-white rounded p-1.5 md:p-2 whitespace-nowrap md:whitespace-normal">
+                  <span className="font-medium">{msg.user.name}:</span> <span className="truncate inline">{msg.content}</span>
                 </div>
               ))}
             </div>
@@ -518,78 +530,78 @@ const TeamChannelInterface: React.FC = () => {
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50">
+        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-4 bg-stone-50 min-w-0">
           {messages.length === 0 ? (
-            <div className="text-center text-stone-500 mt-8">
+            <div className="text-center text-stone-500 mt-4 md:mt-8 text-sm md:text-base">
               <p>No messages yet. Start the conversation!</p>
             </div>
           ) : (
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`group hover:bg-white -mx-4 px-4 py-2 border-l-4 transition-colors ${
+                className={`group hover:bg-white -mx-2 md:-mx-4 px-2 md:px-4 py-1.5 md:py-2 border-l-4 transition-colors ${
                   message.isPinned ? 'border-yellow-500 bg-yellow-50/50' : 'border-transparent'
                 }`}
               >
-                <div className="flex items-start space-x-3">
+                <div className="flex items-start space-x-2 md:space-x-3 min-w-0">
                   <div className="shrink-0 relative">
                     <img 
                       src={message.user.avatar} 
                       alt={message.user.name}
-                      className="w-10 h-10 rounded"
+                      className="w-7 h-7 md:w-10 md:h-10 rounded"
                     />
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-stone-50 bg-green-500"></span>
+                    <span className="absolute bottom-0 right-0 w-2 h-2 md:w-3 md:h-3 rounded-full border-2 border-stone-50 bg-green-500"></span>
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline space-x-2">
-                      <span className="font-semibold text-stone-800">{message.user.name}</span>
+                    <div className="flex items-baseline space-x-1 md:space-x-2 flex-wrap gap-1">
+                      <span className="font-semibold text-stone-800 text-xs md:text-base">{message.user.name}</span>
                       <span className="text-xs text-stone-500">{formatTime(message.timestamp)}</span>
                       {message.isPinned && (
                         <span className="flex items-center text-xs text-yellow-600">
-                          <Pin className="w-3 h-3 mr-1" />
+                          <Pin className="w-2 h-2 md:w-3 md:h-3 mr-1" />
                           Pinned
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-1 text-stone-700">{message.content}</div>
+                    <div className="mt-0.5 md:mt-1 text-stone-700 text-xs md:text-base break-words">{message.content}</div>
 
                     {message.reactions.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
+                      <div className="flex flex-wrap gap-1 mt-1.5 md:mt-2">
                         {message.reactions.map((reaction, idx) => (
                           <button
                             key={idx}
                             onClick={() => addReaction(message.id, reaction.emoji)}
-                            className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs border transition-colors ${
+                            className={`inline-flex items-center space-x-0.5 md:space-x-1 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs border transition-colors ${
                               reaction.users.includes(currentUser.id)
                                 ? 'bg-green-100 border-green-500 text-green-700'
                                 : 'bg-stone-100 border-stone-300 hover:border-stone-400'
                             }`}
                           >
                             <span>{reaction.emoji}</span>
-                            <span>{reaction.count}</span>
+                            <span className="text-xs">{reaction.count}</span>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1">
+                  <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-0.5 md:space-x-1 shrink-0">
                     <div className="relative">
                       <button
                         onClick={() => setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id)}
-                        className="p-1 hover:bg-stone-100 rounded text-stone-600"
+                        className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600"
                       >
-                        <Smile className="w-4 h-4" />
+                        <Smile className="w-3 h-3 md:w-4 md:h-4" />
                       </button>
                       {showEmojiPicker === message.id && (
-                        <div className="absolute right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg p-2 flex space-x-1 z-10">
+                        <div className="absolute right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg p-1 md:p-2 flex flex-wrap gap-1 z-10 w-32 md:w-auto">
                           {emojis.map((emoji) => (
                             <button
                               key={emoji}
                               onClick={() => addReaction(message.id, emoji)}
-                              className="hover:bg-stone-100 rounded p-1 text-lg"
+                              className="hover:bg-stone-100 rounded p-1 text-base md:text-lg"
                             >
                               {emoji}
                             </button>
@@ -599,16 +611,16 @@ const TeamChannelInterface: React.FC = () => {
                     </div>
                     <button 
                       onClick={() => togglePinMessage(message.id)}
-                      className="p-1 hover:bg-stone-100 rounded text-stone-600"
+                      className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600"
                       title={message.isPinned ? "Unpin message" : "Pin message"}
                     >
-                      {message.isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                      {message.isPinned ? <PinOff className="w-3 h-3 md:w-4 md:h-4" /> : <Pin className="w-3 h-3 md:w-4 md:h-4" />}
                     </button>
-                    <button className="p-1 hover:bg-stone-100 rounded text-stone-600">
-                      <Reply className="w-4 h-4" />
+                    <button className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600 hidden sm:block">
+                      <Reply className="w-3 h-3 md:w-4 md:h-4" />
                     </button>
-                    <button className="p-1 hover:bg-stone-100 rounded text-stone-600">
-                      <MoreVertical className="w-4 h-4" />
+                    <button className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600">
+                      <MoreVertical className="w-3 h-3 md:w-4 md:h-4" />
                     </button>
                   </div>
                 </div>
@@ -619,32 +631,32 @@ const TeamChannelInterface: React.FC = () => {
         </div>
 
         {/* Message Input */}
-        <div className="p-4 border-t border-stone-200 bg-white">
+        <div className="p-2 md:p-4 border-t border-stone-200 bg-white shrink-0">
           <div className="bg-white rounded-lg border border-stone-300 focus-within:border-green-500">
             <textarea
               value={currentMessage}
               onChange={(e) => setCurrentMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={`Message #${currentChannel.name}`}
-              className="w-full bg-transparent px-4 py-3 text-stone-800 placeholder-stone-400 resize-none focus:outline-none"
-              rows={3}
+              className="w-full bg-transparent px-2 md:px-4 py-2 md:py-3 text-xs md:text-base text-stone-800 placeholder-stone-400 resize-none focus:outline-none"
+              rows={2}
             />
-            <div className="flex items-center justify-between px-3 py-2 border-t border-stone-200">
-              <div className="flex items-center space-x-2">
-                <button className="p-1.5 hover:bg-stone-100 rounded text-stone-500">
-                  <Paperclip className="w-5 h-5" />
+            <div className="flex items-center justify-between px-2 md:px-3 py-1.5 md:py-2 border-t border-stone-200 gap-2">
+              <div className="flex items-center space-x-1 md:space-x-2">
+                <button className="p-1 md:p-1.5 hover:bg-stone-100 rounded text-stone-500">
+                  <Paperclip className="w-3 h-3 md:w-5 md:h-5" />
                 </button>
-                <button className="p-1.5 hover:bg-stone-100 rounded text-stone-500">
-                  <Smile className="w-5 h-5" />
+                <button className="p-1 md:p-1.5 hover:bg-stone-100 rounded text-stone-500">
+                  <Smile className="w-3 h-3 md:w-5 md:h-5" />
                 </button>
               </div>
               <button
                 onClick={handleSendMessage}
                 disabled={!currentMessage.trim()}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:cursor-not-allowed text-white px-4 py-1.5 rounded flex items-center space-x-1 font-medium transition-colors"
+                className="bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:cursor-not-allowed text-white px-2 md:px-4 py-1 md:py-1.5 rounded flex items-center space-x-0.5 md:space-x-1 font-medium transition-colors text-xs md:text-base"
               >
-                <Send className="w-4 h-4" />
-                <span>Send</span>
+                <Send className="w-3 h-3 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">Send</span>
               </button>
             </div>
           </div>
