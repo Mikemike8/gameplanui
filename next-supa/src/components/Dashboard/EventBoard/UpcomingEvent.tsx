@@ -1,45 +1,72 @@
-// UpcomingEvents.tsx
-import React from "react";
-import { FiClock, FiUsers } from "react-icons/fi";
+"use client";
 
-interface Event {
-  id: string;
-  name: string;
-  date: string;
-  attendees: number;
-}
+import React from "react";
+import { FiCalendar } from "react-icons/fi";
 
 interface UpcomingEventsProps {
-  events: Event[];
+  events: Array<{
+    id: string;
+    name: string;
+    date: string;
+    attendees: number;
+  }>;
 }
 
 export const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
+  const handleSignUp = (eventId: string) => {
+    alert(`Signed up for event ${eventId}!`);
+  };
+
   return (
-    <div className="col-span-12 p-3 md:p-4 rounded border border-stone-300">
-      <h3 className="text-sm md:text-base font-semibold text-stone-800 mb-3">
-        Quick Events List
-      </h3>
-      <div className="space-y-2">
-        {events.map((event) => (
-          <div
-            key={event.id}
-            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 md:p-3 hover:bg-stone-50 rounded transition-colors"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-xs md:text-sm text-stone-800 truncate">
-                {event.name}
-              </p>
-              <div className="flex items-center gap-2 text-xs text-stone-500 mt-1">
-                <FiClock className="w-3 h-3 flex-shrink-0" />
-                <span>{event.date}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs md:text-sm text-stone-600 flex-shrink-0">
-              <FiUsers className="w-3 h-3 md:w-4 md:h-4" />
-              <span className="whitespace-nowrap">{event.attendees}</span>
-            </div>
-          </div>
-        ))}
+    <div className="col-span-12 p-4 rounded border border-stone-300 overflow-x-auto">
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-1.5 font-medium">
+          <FiCalendar /> Upcoming Events
+        </h3>
+        <button className="text-sm text-violet-500 hover:underline">
+          See all
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="min-w-[600px]">
+        <table className="w-full table-auto">
+          <thead>
+            <tr className="text-sm font-normal text-stone-500">
+              <th className="text-start p-1.5">Event ID</th>
+              <th className="text-start p-1.5">Event Name</th>
+              <th className="text-start p-1.5">Date</th>
+              <th className="text-start p-1.5">Attendees</th>
+              <th className="text-start p-1.5">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((event, index) => (
+              <tr
+                key={event.id}
+                className={index % 2 ? "bg-stone-100 text-sm" : "text-sm"}
+              >
+                <td className="p-1.5">
+                  <span className="text-violet-600 underline flex items-center gap-1">
+                    {event.id}
+                  </span>
+                </td>
+                <td className="p-1.5">{event.name}</td>
+                <td className="p-1.5">{event.date}</td>
+                <td className="p-1.5">{event.attendees}</td>
+                <td className="p-1.5">
+                  <button
+                    onClick={() => handleSignUp(event.id)}
+                    className="text-sm text-white bg-violet-500 hover:bg-violet-600 px-3 py-1 rounded transition-colors whitespace-nowrap"
+                  >
+                    Sign Up
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

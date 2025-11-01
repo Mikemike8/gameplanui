@@ -1,5 +1,5 @@
 import React from "react";
-import { FiTrendingDown, FiTrendingUp } from "react-icons/fi";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
 export const StatCards = () => {
   return (
@@ -43,21 +43,21 @@ const Card = ({
   period: string;
 }) => {
   return (
-    <div className="col-span-4 p-4 rounded border border-stone-300">
-      <div className="flex mb-8 items-start justify-between">
-        <div>
+    <div className="col-span-12 sm:col-span-6 lg:col-span-4 p-4 rounded border border-stone-300 bg-white">
+      <div className="flex mb-6 items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h3 className="text-stone-500 mb-2 text-sm">{title}</h3>
-          <p className="text-3xl font-semibold">{value}</p>
+          <p className="text-2xl sm:text-3xl font-semibold break-words">{value}</p>
         </div>
 
         <span
-          className={`text-xs flex items-center gap-1 font-medium px-2 py-1 rounded ${
+          className={`text-xs flex items-center gap-1 font-medium px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${
             trend === "up"
               ? "bg-green-100 text-green-700"
               : "bg-red-100 text-red-700"
           }`}
         >
-          {trend === "up" ? <FiTrendingUp /> : <FiTrendingDown />} {pillText}
+          {trend === "up" ? <TrendingUp size={14} /> : <TrendingDown size={14} />} {pillText}
         </span>
       </div>
 

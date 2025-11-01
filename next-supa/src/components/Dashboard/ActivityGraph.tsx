@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { FiUser } from "react-icons/fi";
+import { User } from "lucide-react";
 import {
   XAxis,
   YAxis,
@@ -52,14 +52,14 @@ const data = [
 
 export const ActivityGraph = () => {
   return (
-    <div className="col-span-8 overflow-hidden rounded border border-stone-300">
+    <div className="col-span-12 lg:col-span-8 overflow-hidden rounded border border-stone-300 bg-white">
       <div className="p-4">
         <h3 className="flex items-center gap-1.5 font-medium">
-          <FiUser /> Activity
+          <User size={18} /> Activity
         </h3>
       </div>
 
-      <div className="h-64 px-4">
+      <div className="h-64 px-4 pb-4">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             width={500}

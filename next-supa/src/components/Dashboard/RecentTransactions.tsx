@@ -1,82 +1,61 @@
+"use client";
+
 import React from "react";
-import { FiArrowUpRight, FiDollarSign, FiMoreHorizontal } from "react-icons/fi";
+import { ArrowUpRight, DollarSign, MoreHorizontal } from "lucide-react";
 
 export const RecentTransactions = () => {
+  const transactions = [
+    { cusId: "#48149", sku: "Pro 1 Month", date: "Aug 2nd", price: "$9.75" },
+    { cusId: "#1942s", sku: "Pro 3 Month", date: "Aug 2nd", price: "$21.25" },
+    { cusId: "#4192", sku: "Pro 1 Year", date: "Aug 1st", price: "$94.75" },
+    { cusId: "#99481", sku: "Pro 1 Month", date: "Aug 1st", price: "$9.44" },
+    { cusId: "#1304", sku: "Pro 1 Month", date: "Aug 1st", price: "$9.23" },
+    { cusId: "#1304", sku: "Pro 3 Month", date: "Jul 31st", price: "$22.02" },
+  ];
+
   return (
-    <div className="col-span-12 p-4 rounded border border-stone-300">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="flex items-center gap-1.5 font-medium">
-          <FiDollarSign /> Recent Transactions
+    <div className="col-span-12 overflow-x-auto p-4 rounded border border-stone-300 bg-white">
+      {/* Header */}
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h3 className="flex items-center gap-2 font-medium text-stone-700">
+          <DollarSign size={18} /> Recent Transactions
         </h3>
-        <button className="text-sm text-violet-500 hover:underline">
+        <button className="text-sm text-violet-500 hover:underline self-start sm:self-auto">
           See all
         </button>
       </div>
-      <table className="w-full table-auto">
-        <TableHead />
 
+      {/* Table */}
+      <table className="min-w-[600px] w-full table-auto border-collapse">
+        <TableHead />
         <tbody>
-          <TableRow
-            cusId="#48149"
-            sku="Pro 1 Month"
-            date="Aug 2nd"
-            price="$9.75"
-            order={1}
-          />
-          <TableRow
-            cusId="#1942s"
-            sku="Pro 3 Month"
-            date="Aug 2nd"
-            price="$21.25"
-            order={2}
-          />
-          <TableRow
-            cusId="#4192"
-            sku="Pro 1 Year"
-            date="Aug 1st"
-            price="$94.75"
-            order={3}
-          />
-          <TableRow
-            cusId="#99481"
-            sku="Pro 1 Month"
-            date="Aug 1st"
-            price="$9.44"
-            order={4}
-          />
-          <TableRow
-            cusId="#1304"
-            sku="Pro 1 Month"
-            date="Aug 1st"
-            price="$9.23"
-            order={5}
-          />
-          <TableRow
-            cusId="#1304"
-            sku="Pro 3 Month"
-            date="Jul 31st"
-            price="$22.02"
-            order={6}
-          />
+          {transactions.map((tx, idx) => (
+            <TableRow
+              key={tx.cusId + idx}
+              order={idx + 1}
+              cusId={tx.cusId}
+              sku={tx.sku}
+              date={tx.date}
+              price={tx.price}
+            />
+          ))}
         </tbody>
       </table>
     </div>
   );
 };
 
-const TableHead = () => {
-  return (
-    <thead>
-      <tr className="text-sm font-normal text-stone-500">
-        <th className="text-start p-1.5">Customer ID</th>
-        <th className="text-start p-1.5">SKU</th>
-        <th className="text-start p-1.5">Date</th>
-        <th className="text-start p-1.5">Price</th>
-        <th className="w-8"></th>
-      </tr>
-    </thead>
-  );
-};
+const TableHead = () => (
+  <thead>
+    <tr className="text-sm font-semibold text-stone-500 bg-stone-100">
+      <th className="text-start p-2 rounded-tl">Customer ID</th>
+      <th className="text-start p-2">SKU</th>
+      <th className="text-start p-2">Date</th>
+      <th className="text-start p-2">Price</th>
+      <th className="w-8 rounded-tr"></th>
+    </tr>
+  </thead>
+);
 
 const TableRow = ({
   cusId,
@@ -92,21 +71,21 @@ const TableRow = ({
   order: number;
 }) => {
   return (
-    <tr className={order % 2 ? "bg-stone-100 text-sm" : "text-sm"}>
-      <td className="p-1.5">
+    <tr className={`text-sm ${order % 2 ? "bg-stone-50" : ""}`}>
+      <td className="p-2">
         <a
           href="#"
-          className="text-violet-600 underline flex items-center gap-1"
+          className="text-violet-600 underline flex items-center gap-1 hover:text-violet-800 w-fit"
         >
-          {cusId} <FiArrowUpRight />
+          {cusId} <ArrowUpRight size={14} />
         </a>
       </td>
-      <td className="p-1.5">{sku}</td>
-      <td className="p-1.5">{date}</td>
-      <td className="p-1.5">{price}</td>
+      <td className="p-2">{sku}</td>
+      <td className="p-2">{date}</td>
+      <td className="p-2 font-medium">{price}</td>
       <td className="w-8">
-        <button className="hover:bg-stone-200 transition-colors grid place-content-center rounded text-sm size-8">
-          <FiMoreHorizontal />
+        <button className="grid place-content-center p-1 rounded hover:bg-stone-200 transition">
+          <MoreHorizontal size={16} />
         </button>
       </td>
     </tr>

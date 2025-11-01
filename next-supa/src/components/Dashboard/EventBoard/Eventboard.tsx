@@ -1,12 +1,11 @@
-// Eventboard.tsx
 "use client";
 
 import React, { useState } from "react";
-import { TopBar } from "./TopBar";
+import { TopBar } from "../TopBar";
 import { EventGrid } from "./EventGrid";
 import { EventCardWide } from "./EventCardWide";
-import { EventStatsCard } from "./EventStatsCard";
-import { UpcomingEvents } from "./UpcomingEvents";
+import { EventStatsCard } from "./EventStats";
+import { UpcomingEvents } from "./UpcomingEvent";
 
 interface EventboardProps {
   className?: string;
@@ -19,7 +18,9 @@ export const Eventboard = ({ className }: EventboardProps) => {
   ]);
 
   return (
-    <div className={`grid bg-white grid-cols-12 gap-3 md:gap-4 overflow-y-auto ${className}`}>
+    <div
+      className={`grid bg-white grid-cols-12 gap-4 overflow-y-auto ${className}`}
+    >
       {/* Top Bar */}
       <div className="col-span-12">
         <TopBar />
@@ -31,8 +32,8 @@ export const Eventboard = ({ className }: EventboardProps) => {
       </div>
 
       {/* Main Cards Row */}
-      <EventCardWide />
-      <EventStatsCard />
+      <EventCardWide className="col-span-12 md:col-span-8" />
+      <EventStatsCard className="col-span-12 md:col-span-4 mt-4 md:mt-0" />
 
       {/* Upcoming Events */}
       <div className="col-span-12">
@@ -40,7 +41,7 @@ export const Eventboard = ({ className }: EventboardProps) => {
       </div>
 
       {/* Footer / Last Updated */}
-      <div className="col-span-12 p-3 md:p-4 border-t text-center sm:text-left">
+      <div className="col-span-12 p-4 border-t">
         <p className="text-xs text-stone-500">
           Last updated: August 8th, 2023 at 10:00 AM
         </p>

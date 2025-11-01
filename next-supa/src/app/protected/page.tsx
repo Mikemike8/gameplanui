@@ -16,9 +16,9 @@ export default async function ProtectedPage() {
 
   // 3️⃣ Render dashboard
   return (
-    <div className="flex flex-col w-full h-full overflow-y-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">
+    <div className=" sm:p-2 lg:p-6 max-w-7xl mx-auto">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-semibold">
           Welcome back, {user.name || user.email} 👋
         </h1>
       </div>

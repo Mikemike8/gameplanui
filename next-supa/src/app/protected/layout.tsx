@@ -21,8 +21,10 @@ export default async function ProtectedLayout({
   return (
     <div className="flex flex-col w-full h-screen overflow-hidden">
       <Navbar email={email} />
-      <main className="flex-1 overflow-auto p-6 bg-stone-50">
-        {children}
+      <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 bg-stone-50">
+        <div className="max-w-7xl ">
+          {children}
+        </div>
       </main>
     </div>
   );

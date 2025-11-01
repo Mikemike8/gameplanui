@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { FiEye } from "react-icons/fi";
+import { Eye } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -48,14 +48,14 @@ const data = [
 
 export const UsageRadar = () => {
   return (
-    <div className="col-span-4 overflow-hidden rounded border border-stone-300">
+    <div className="col-span-12 lg:col-span-4 overflow-hidden rounded border border-stone-300 bg-white">
       <div className="p-4">
         <h3 className="flex items-center gap-1.5 font-medium">
-          <FiEye /> Usage
+          <Eye size={18} /> Usage
         </h3>
       </div>
 
-      <div className="h-64 px-4">
+      <div className="h-64 px-4 pb-4">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
             <PolarGrid />
