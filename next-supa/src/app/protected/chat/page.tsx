@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { v4 as uuidv4 } from 'uuid';
-import { useUser } from '@auth0/nextjs-auth0/client';
 
 interface User {
   id: string;
@@ -44,9 +43,15 @@ interface Channel {
   isPrivate?: boolean;
 }
 
+interface TeamChannelInterfaceProps {
+  userEmail: string;
+  userName: string;
+  userAvatar?: string;
+}
+
 const API_URL = 'http://localhost:8000';
 
-const TeamChannelInterface: React.FC = () => {
+const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, userName, userAvatar }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
@@ -59,9 +64,9 @@ const TeamChannelInterface: React.FC = () => {
   const [isPrivateChannel, setIsPrivateChannel] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingIntervalRef = useRef<any>(null);
-  const { user: auth0User, isLoading: authLoading } = useUser();
 
   useEffect(() => {
     if (currentChannel) {
@@ -79,12 +84,8 @@ const TeamChannelInterface: React.FC = () => {
 
   useEffect(() => {
     loadChannels();
-  }, []);
-
-  useEffect(() => {
-    if (authLoading || !auth0User) return;
     loadCurrentUser();
-  }, [auth0User, authLoading]);
+  }, []);
 
   useEffect(() => {
     if (currentChannel) {
@@ -93,26 +94,22 @@ const TeamChannelInterface: React.FC = () => {
   }, [currentChannel]);
 
   const loadCurrentUser = async () => {
-    if (!auth0User) return;
-
     try {
-      const authEmail = auth0User.email || 'anonymous@example.com';
-      const authName = auth0User.name || auth0User.nickname || 'Anonymous';
-      const authAvatar = auth0User.picture || `https://api.dicebear.com/7.x/notionists/svg?seed=${authEmail}`;
+      const avatar = userAvatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${userEmail}`;
 
       const response = await fetch(`${API_URL}/users`);
       const users = await response.json();
       
-      let user = users.find((u: any) => u.email === authEmail);
+      let user = users.find((u: any) => u.email === userEmail);
       
       if (!user) {
         const createResponse = await fetch(`${API_URL}/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: authName,
-            email: authEmail,
-            avatar: authAvatar
+            name: userName,
+            email: userEmail,
+            avatar: avatar
           })
         });
         user = await createResponse.json();
@@ -124,8 +121,10 @@ const TeamChannelInterface: React.FC = () => {
         avatar: user.avatar,
         status: 'online'
       });
+      setIsLoading(false);
     } catch (error) {
       console.error('Error loading user:', error);
+      setIsLoading(false);
     }
   };
 
@@ -348,7 +347,7 @@ const TeamChannelInterface: React.FC = () => {
   const emojis = ['👍', '❤️', '😂', '🎉', '🚀', '👀', '✅', '🔥'];
   const pinnedMessages = messages.filter(m => m.isPinned);
 
-  if (!currentUser || !currentChannel) {
+  if (isLoading || !currentUser || !currentChannel) {
     return (
       <div className="flex items-center justify-center h-screen bg-stone-50">
         <div className="text-center">
