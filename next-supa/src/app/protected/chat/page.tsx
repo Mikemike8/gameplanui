@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { v4 as uuidv4 } from 'uuid';
+import { io, Socket } from 'socket.io-client';
 
 interface User {
   id: string;
@@ -66,21 +67,53 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<any>(null);
+  const socketRef = useRef<Socket | null>(null);
 
+  // Initialize Socket.IO connection
   useEffect(() => {
-    if (currentChannel) {
-      pollingIntervalRef.current = setInterval(() => {
+    socketRef.current = io(API_URL, {
+      transports: ['websocket', 'polling']
+    });
+
+    socketRef.current.on('connect', () => {
+      console.log('Connected to Socket.IO server');
+    });
+
+    socketRef.current.on('new-message', (message: any) => {
+      console.log('Received new message:', message);
+      setMessages(prev => [...prev, {
+        id: message.id,
+        user: message.user,
+        content: message.content,
+        timestamp: new Date(message.timestamp),
+        reactions: message.reactions || [],
+        isPinned: message.isPinned || false,
+        pinnedBy: message.pinnedBy
+      }]);
+    });
+
+    socketRef.current.on('message-pinned', (data: any) => {
+      console.log('Message pin updated:', data);
+      setMessages(prev => prev.map(msg =>
+        msg.id === data.message_id
+          ? { ...msg, isPinned: data.is_pinned, pinnedBy: data.pinned_by }
+          : msg
+      ));
+    });
+
+    socketRef.current.on('reaction-updated', () => {
+      // Reload messages when reactions change
+      if (currentChannel) {
         loadMessages();
-      }, 2000);
-    }
+      }
+    });
 
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
     };
-  }, [currentChannel]);
+  }, []);
 
   useEffect(() => {
     loadChannels();
@@ -92,6 +125,10 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
       loadMessages();
     }
   }, [currentChannel]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const loadCurrentUser = async () => {
     try {
@@ -203,20 +240,10 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
     const messageContent = currentMessage.trim();
     if (!messageContent || !currentUser || !currentChannel) return;
 
-    const tempId = uuidv4();
-    const optimisticMessage: Message = {
-      id: tempId,
-      user: currentUser,
-      content: messageContent,
-      timestamp: new Date(),
-      reactions: []
-    };
-
-    setMessages(prev => [...prev, optimisticMessage]);
     setCurrentMessage('');
 
     try {
-      const response = await fetch(`${API_URL}/messages`, {
+      await fetch(`${API_URL}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,19 +252,9 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
           user_id: currentUser.id
         })
       });
-
-      if (!response.ok) throw new Error('Failed to send message');
-
-      const savedMessage = await response.json();
-      
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === tempId ? { ...msg, id: savedMessage.id } : msg
-        )
-      );
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setCurrentMessage(messageContent);
     }
   };
 
@@ -286,12 +303,6 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
 
     const newPinStatus = !message.isPinned;
 
-    setMessages(prev => prev.map(msg =>
-      msg.id === messageId
-        ? { ...msg, isPinned: newPinStatus, pinnedBy: newPinStatus ? currentUser.name : undefined }
-        : msg
-    ));
-
     try {
       await fetch(`${API_URL}/messages/${messageId}/pin`, {
         method: 'PATCH',
@@ -303,11 +314,6 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
       });
     } catch (error) {
       console.error('Error toggling pin:', error);
-      setMessages(prev => prev.map(msg =>
-        msg.id === messageId
-          ? { ...msg, isPinned: !newPinStatus }
-          : msg
-      ));
     }
   };
 
@@ -324,8 +330,6 @@ const TeamChannelInterface: React.FC<TeamChannelInterfaceProps> = ({ userEmail, 
           emoji
         })
       });
-
-      loadMessages();
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
