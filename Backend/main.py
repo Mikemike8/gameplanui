@@ -161,9 +161,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Combine with Socket.IO
-socket_app = socketio.ASGIApp(sio, app)
-
 # ----------------------
 # Socket.IO events
 # ----------------------
@@ -487,3 +484,11 @@ def mark_channel_read(channel_id: str, user_id: str, db: Session = Depends(get_d
 @app.get("/")
 def hello_world():
     return {"message": "Team Chat API with WebSocket Support"}
+
+# ----------------------
+# Combine FastAPI with Socket.IO
+# ----------------------
+socket_app = socketio.ASGIApp(sio, app)
+
+# Export for uvicorn
+application = socket_app
