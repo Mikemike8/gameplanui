@@ -2,21 +2,22 @@
 
 import React from "react";
 import TeamChannelInterface from "@/components/Dashboard/TeamChannelInterface";
-import { useUser } from '@auth0/nextjs-auth0/client';
-
+import { useUser } from "@auth0/nextjs-auth0/client";
 
 interface ChatPageProps {
-  email: string;
+  email?: string; // optional, since we may fallback to Auth0 user
 }
 
+const ChatPage = ({ email }: ChatPageProps) => {
+  const { user, isLoading } = useUser();
 
-export const ChatPage : React.FC<ChatPageProps>= ({ email }) => {
+  if (isLoading) return <p>Loading...</p>;
+  if (!user && !email) return <p>User not found</p>;
 
-    const { user, isLoading } = useUser();
-  // Replace with real user data (you can fetch from Supabase or auth context)
-  const userEmail = email.split("@")[0];
-  const userName =  user?.name || user?.nickname || email.split("@")[0];
-  const userAvatar = user?.picture || `https://api.dicebear.com/9.x/notionists/svg?seed=${email}`;
+  const userEmail = email?.split("@")[0] || user?.email?.split("@")[0] || "guest";
+  const userName = user?.name || user?.nickname || userEmail;
+  const userAvatar =
+    user?.picture || `https://api.dicebear.com/9.x/notionists/svg?seed=${userEmail}`;
 
   return (
     <TeamChannelInterface
@@ -25,4 +26,6 @@ export const ChatPage : React.FC<ChatPageProps>= ({ email }) => {
       userAvatar={userAvatar}
     />
   );
-}
+};
+
+export default ChatPage; // ✅ Default export is required
