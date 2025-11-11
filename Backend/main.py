@@ -6,9 +6,8 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, Da
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
-from typing import Optional, List\
-#SQLAlchemy imports
-import socketio # Socket.IO server
+from typing import Optional, List
+import socketio
 import enum
 import uuid
 
@@ -189,6 +188,42 @@ def get_db():
 # ----------------------
 # USER ROUTES
 # ----------------------
+@app.post("/users/me")
+def get_or_create_user(
+    request: UserCreate,
+    db: Session = Depends(get_db)
+):
+    """Get or create user by email - Used for Auth0 authentication"""
+    # Find user by email
+    db_user = db.query(User).filter(User.email == request.email).first()
+    
+    if db_user:
+        return {
+            "id": db_user.id,
+            "name": db_user.name,
+            "email": db_user.email,
+            "avatar": db_user.avatar
+        }
+
+    # Create new user
+    avatar = request.avatar or f"https://api.dicebear.com/7.x/avataaars/svg?seed={request.email}"
+    new_user = User(
+        id=str(uuid.uuid4()),
+        name=request.name or request.email.split("@")[0],
+        email=request.email,
+        avatar=avatar
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email,
+        "avatar": new_user.avatar
+    }
+
 @app.post("/users")
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user.email).first()
@@ -281,7 +316,8 @@ async def create_message(message: MessageCreate, db: Session = Depends(get_db)):
             "status": user.status.value
         },
         "reactions": [],
-        "isPinned": False
+        "isPinned": db_message.is_pinned,
+        "pinnedBy": db_message.pinned_by
     }
     
     # Broadcast to all connected clients
@@ -377,12 +413,23 @@ async def add_reaction(reaction: ReactionCreate, db: Session = Depends(get_db)):
         db.commit()
         action = "added"
     
-    # Broadcast reaction update
-    await sio.emit('reaction-updated', {
+    # Get all reactions for this message
+    reactions = db.query(MessageReaction).filter(
+        MessageReaction.message_id == reaction.message_id
+    ).all()
+    
+    # Group by emoji
+    reaction_dict = {}
+    for r in reactions:
+        if r.emoji not in reaction_dict:
+            reaction_dict[r.emoji] = {"emoji": r.emoji, "count": 0, "users": []}
+        reaction_dict[r.emoji]["count"] += 1
+        reaction_dict[r.emoji]["users"].append(r.user_id)
+    
+    # Broadcast reaction update with full reaction list
+    await sio.emit('reaction-added', {
         "message_id": reaction.message_id,
-        "user_id": reaction.user_id,
-        "emoji": reaction.emoji,
-        "action": action
+        "reactions": list(reaction_dict.values())
     })
     
     return {"message": f"Reaction {action}", "emoji": reaction.emoji}
