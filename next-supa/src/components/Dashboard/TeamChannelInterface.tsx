@@ -1,6 +1,4 @@
 // src/components/TeamChannelInterface.tsx
-"use client";
-
 import React, {
   useState,
   useEffect,
@@ -36,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { v4 as uuidv4 } from "uuid";
 import { io, Socket } from "socket.io-client";
 
@@ -429,10 +428,10 @@ export default function TeamChannelInterface({
   /* ------------------- Loading Guard ------------------- */
   if (!currentUser || !currentChannel) {
     return (
-      <div className="flex items-center justify-center h-screen bg-stone-50">
+      <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto" />
-          <p className="mt-4 text-stone-600">Loading…</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">Loading…</p>
         </div>
       </div>
     );
@@ -440,11 +439,11 @@ export default function TeamChannelInterface({
 
   /* ------------------- JSX ------------------- */
   return (
-    <div className="flex h-screen bg-stone-50 text-stone-800 flex-col md:flex-row overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground flex-col md:flex-row overflow-hidden">
       {/* Mobile Menu Button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden p-3 bg-white border-b border-stone-200 flex items-center justify-between shrink-0"
+        className="md:hidden p-3 bg-card border-b border-border flex items-center justify-between shrink-0"
       >
         <Menu className="w-5 h-5" />
         <span className="text-sm font-semibold ml-2 truncate">{currentChannel.name}</span>
@@ -452,15 +451,15 @@ export default function TeamChannelInterface({
 
       {/* Sidebar */}
       <div
-        className={`fixed md:relative z-50 md:z-0 inset-0 md:inset-auto w-64 bg-white border-r border-stone-300 flex flex-col h-full transition-transform duration-300 ${
+        className={`fixed md:relative z-50 md:z-0 inset-0 md:inset-auto w-64 bg-sidebar border-r border-sidebar-border flex flex-col h-full transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div className="p-3 md:p-4 border-b border-stone-200 flex items-center justify-between shrink-0">
-          <h1 className="text-lg md:text-xl font-bold text-stone-800">Team Workspace</h1>
+        <div className="p-3 md:p-4 border-b border-sidebar-border flex items-center justify-between shrink-0">
+          <h1 className="text-lg md:text-xl font-bold text-sidebar-foreground">Team Workspace</h1>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="md:hidden p-1 hover:bg-stone-100 rounded"
+            className="md:hidden p-1 hover:bg-chat-hover rounded"
           >
             <X className="w-4 h-4" />
           </button>
@@ -468,12 +467,12 @@ export default function TeamChannelInterface({
 
         <div className="flex-1 overflow-y-auto min-w-0">
           <div className="p-2 md:p-3">
-            <div className="flex items-center justify-between px-2 py-1 text-xs md:text-sm text-stone-500 mb-2">
+            <div className="flex items-center justify-between px-2 py-1 text-xs md:text-sm text-muted-foreground mb-2">
               <span className="font-semibold">Channels</span>
 
               <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
                 <DialogTrigger asChild>
-                  <button className="hover:text-stone-800 p-1">
+                  <button className="hover:text-foreground p-1 transition-colors">
                     <Plus className="w-4 h-4" />
                   </button>
                 </DialogTrigger>
@@ -508,14 +507,12 @@ export default function TeamChannelInterface({
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         id="private-channel"
                         checked={isPrivateChannel}
-                        onChange={(e) => setIsPrivateChannel(e.target.checked)}
-                        className="w-4 h-4"
+                        onCheckedChange={(checked: boolean) => setIsPrivateChannel(checked)}
                       />
-                      <Label htmlFor="private-channel" className="text-sm">
+                      <Label htmlFor="private-channel" className="text-sm cursor-pointer">
                         Make private
                       </Label>
                     </div>
@@ -531,7 +528,7 @@ export default function TeamChannelInterface({
                     </Button>
                     <Button
                       onClick={handleCreateChannel}
-                      className="bg-green-600 hover:bg-green-700 text-sm"
+                      className="text-sm"
                     >
                       Create
                     </Button>
@@ -550,8 +547,8 @@ export default function TeamChannelInterface({
                   }}
                   className={`flex items-center justify-between px-2 py-2 md:py-1.5 rounded cursor-pointer text-xs md:text-sm transition-colors ${
                     currentChannel.id === channel.id
-                      ? "bg-green-100 text-green-700"
-                      : "hover:bg-stone-100 text-stone-600"
+                      ? "bg-chat-active text-chat-active-text font-medium"
+                      : "hover:bg-chat-hover text-sidebar-foreground"
                   }`}
                 >
                   <div className="flex items-center flex-1 min-w-0">
@@ -576,34 +573,34 @@ export default function TeamChannelInterface({
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="hidden md:flex h-12 md:h-16 border-b border-stone-200 items-center justify-between px-3 md:px-4 bg-white shrink-0">
+        <div className="hidden md:flex h-12 md:h-16 border-b border-border items-center justify-between px-3 md:px-4 bg-card shrink-0">
           <div className="flex items-center space-x-2 min-w-0">
-            <Hash className="w-4 h-4 md:w-5 md:h-5 text-stone-500 shrink-0" />
+            <Hash className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground shrink-0" />
             <div className="min-w-0">
-              <h2 className="font-bold text-sm md:text-lg text-stone-800 truncate">{currentChannel.name}</h2>
-              <p className="text-xs text-stone-500 truncate">{currentChannel.description}</p>
+              <h2 className="font-bold text-sm md:text-lg text-foreground truncate">{currentChannel.name}</h2>
+              <p className="text-xs text-muted-foreground truncate">{currentChannel.description}</p>
             </div>
           </div>
 
           <div className="flex items-center space-x-1 md:space-x-3 shrink-0">
             <button
               onClick={() => setShowPinnedMessages(!showPinnedMessages)}
-              className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600 relative"
+              className="p-1 md:p-2 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors relative"
             >
               <Pin className="w-4 h-4 md:w-5 md:h-5" />
               {pinnedMessages.length > 0 && (
-                <Badge className="absolute -top-1 -right-1 bg-green-600 text-white text-xs h-4 min-w-4 px-1 flex items-center justify-center">
+                <Badge className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs h-4 min-w-4 px-1 flex items-center justify-center">
                   {pinnedMessages.length}
                 </Badge>
               )}
             </button>
-            <button className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600">
+            <button className="p-1 md:p-2 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors">
               <Users className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <button className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600">
+            <button className="p-1 md:p-2 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors">
               <Search className="w-4 h-4 md:w-5 md:h-5" />
             </button>
-            <button className="p-1 md:p-2 hover:bg-stone-100 rounded text-stone-600">
+            <button className="p-1 md:p-2 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors">
               <Settings className="w-4 h-4 md:w-5 md:h-5" />
             </button>
           </div>
@@ -611,16 +608,16 @@ export default function TeamChannelInterface({
 
         {/* Pinned panel */}
         {showPinnedMessages && pinnedMessages.length > 0 && (
-          <div className="bg-yellow-50 border-b border-yellow-200 p-2 md:p-3 shrink-0">
+          <div className="bg-pinned-bg border-b border-pinned-border p-2 md:p-3 shrink-0">
             <div className="flex items-start justify-between mb-2 gap-2">
-              <h3 className="text-xs md:text-sm font-semibold text-yellow-800 flex items-center gap-1 shrink-0">
+              <h3 className="text-xs md:text-sm font-semibold text-pinned-text flex items-center gap-1 shrink-0">
                 <Pin className="w-3 h-3 md:w-4 md:h-4" />
                 <span className="hidden sm:inline">Pinned Messages</span>
                 <span className="sm:hidden">Pinned</span>
               </h3>
               <button
                 onClick={() => setShowPinnedMessages(false)}
-                className="text-yellow-600 hover:text-yellow-800 shrink-0"
+                className="text-pinned-text hover:opacity-70 shrink-0 transition-opacity"
               >
                 <X className="w-3 h-3 md:w-4 md:h-4" />
               </button>
@@ -629,7 +626,7 @@ export default function TeamChannelInterface({
               {pinnedMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className="text-xs md:text-sm text-yellow-900 bg-white rounded p-1.5 md:p-2 whitespace-nowrap md:whitespace-normal"
+                  className="text-xs md:text-sm text-pinned-text bg-card rounded p-1.5 md:p-2 whitespace-nowrap md:whitespace-normal"
                 >
                   <span className="font-medium">{msg.user.name}:</span>{" "}
                   <span className="truncate inline">{msg.content}</span>
@@ -640,17 +637,17 @@ export default function TeamChannelInterface({
         )}
 
         {/* Messages list */}
-        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-4 bg-stone-50 min-w-0">
+        <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-4 bg-background min-w-0">
           {messages.length === 0 ? (
-            <div className="text-center text-stone-500 mt-4 md:mt-8 text-sm md:text-base">
+            <div className="text-center text-muted-foreground mt-4 md:mt-8 text-sm md:text-base">
               <p>No messages yet. Start the conversation!</p>
             </div>
           ) : (
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`group hover:bg-white -mx-2 md:-mx-4 px-2 md:px-4 py-1.5 md:py-2 border-l-4 transition-colors ${
-                  message.isPinned ? "border-yellow-500 bg-yellow-50/50" : "border-transparent"
+                className={`group hover:bg-card -mx-2 md:-mx-4 px-2 md:px-4 py-1.5 md:py-2 border-l-4 transition-colors ${
+                  message.isPinned ? "border-pinned-border bg-pinned-bg/50" : "border-transparent"
                 }`}
               >
                 <div className="flex items-start space-x-2 md:space-x-3 min-w-0">
@@ -660,24 +657,24 @@ export default function TeamChannelInterface({
                       alt={message.user.name}
                       className="w-7 h-7 md:w-10 md:h-10 rounded"
                     />
-                    <span className="absolute bottom-0 right-0 w-2 h-2 md:w-3 md:h-3 rounded-full border-2 border-stone-50 bg-green-500"></span>
+                    <span className="absolute bottom-0 right-0 w-2 h-2 md:w-3 md:h-3 rounded-full border-2 border-background bg-online"></span>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline space-x-1 md:space-x-2 flex-wrap gap-1">
-                      <span className="font-semibold text-stone-800 text-xs md:text-base">
+                      <span className="font-semibold text-foreground text-xs md:text-base">
                         {message.user.name}
                       </span>
-                      <span className="text-xs text-stone-500">{formatTime(message.timestamp)}</span>
+                      <span className="text-xs text-muted-foreground">{formatTime(message.timestamp)}</span>
                       {message.isPinned && (
-                        <span className="flex items-center text-xs text-yellow-600">
+                        <span className="flex items-center text-xs text-pinned-text">
                           <Pin className="w-2 h-2 md:w-3 md:h-3 mr-1" />
                           Pinned
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-0.5 md:mt-1 text-stone-700 text-xs md:text-base break-words">
+                    <div className="mt-0.5 md:mt-1 text-foreground text-xs md:text-base break-words">
                       {message.content}
                     </div>
 
@@ -689,8 +686,8 @@ export default function TeamChannelInterface({
                             onClick={() => addReaction(message.id, reaction.emoji)}
                             className={`inline-flex items-center space-x-0.5 md:space-x-1 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full text-xs border transition-colors ${
                               reaction.users.includes(currentUser.id)
-                                ? "bg-green-100 border-green-500 text-green-700"
-                                : "bg-stone-100 border-stone-300 hover:border-stone-400"
+                                ? "bg-chat-active border-primary text-chat-active-text"
+                                : "bg-secondary border-border hover:border-primary/50"
                             }`}
                           >
                             <span>{reaction.emoji}</span>
@@ -707,18 +704,18 @@ export default function TeamChannelInterface({
                         onClick={() =>
                           setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id)
                         }
-                        className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600"
+                        className="p-0.5 md:p-1 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <Smile className="w-3 h-3 md:w-4 md:h-4" />
                       </button>
 
                       {showEmojiPicker === message.id && (
-                        <div className="absolute right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg p-1 md:p-2 flex flex-wrap gap-1 z-10 w-32 md:w-auto">
+                        <div className="absolute right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg p-1 md:p-2 flex flex-wrap gap-1 z-10 w-32 md:w-auto">
                           {emojis.map((emoji) => (
                             <button
                               key={emoji}
                               onClick={() => addReaction(message.id, emoji)}
-                              className="hover:bg-stone-100 rounded p-1 text-base md:text-lg"
+                              className="hover:bg-chat-hover rounded p-1 text-base md:text-lg transition-colors"
                             >
                               {emoji}
                             </button>
@@ -729,7 +726,7 @@ export default function TeamChannelInterface({
 
                     <button
                       onClick={() => togglePinMessage(message.id)}
-                      className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600"
+                      className="p-0.5 md:p-1 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors"
                       title={message.isPinned ? "Unpin" : "Pin"}
                     >
                       {message.isPinned ? (
@@ -739,11 +736,11 @@ export default function TeamChannelInterface({
                       )}
                     </button>
 
-                    <button className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600 hidden sm:block">
+                    <button className="p-0.5 md:p-1 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
                       <Reply className="w-3 h-3 md:w-4 md:h-4" />
                     </button>
 
-                    <button className="p-0.5 md:p-1 hover:bg-stone-100 rounded text-stone-600">
+                    <button className="p-0.5 md:p-1 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors">
                       <MoreVertical className="w-3 h-3 md:w-4 md:h-4" />
                     </button>
                   </div>
@@ -755,34 +752,35 @@ export default function TeamChannelInterface({
         </div>
 
         {/* Input */}
-        <div className="p-2 md:p-4 border-t border-stone-200 bg-white shrink-0">
-          <div className="bg-white rounded-lg border border-stone-300 focus-within:border-green-500">
+        <div className="p-2 md:p-4 border-t border-border bg-card shrink-0">
+          <div className="bg-card rounded-lg border border-input focus-within:border-ring transition-colors">
             <textarea
               value={currentMessage}
               onChange={(e) => setCurrentMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={`Message #${currentChannel.name}`}
-              className="w-full bg-transparent px-2 md:px-4 py-2 md:py-3 text-xs md:text-base text-stone-800 placeholder-stone-400 resize-none focus:outline-none"
+              className="w-full bg-transparent px-2 md:px-4 py-2 md:py-3 text-xs md:text-base text-foreground placeholder-muted-foreground resize-none focus:outline-none"
               rows={2}
             />
-            <div className="flex items-center justify-between px-2 md:px-3 py-1.5 md:py-2 border-t border-stone-200 gap-2">
+            <div className="flex items-center justify-between px-2 md:px-3 py-1.5 md:py-2 border-t border-border gap-2">
               <div className="flex items-center space-x-1 md:space-x-2">
-                <button className="p-1 md:p-1.5 hover:bg-stone-100 rounded text-stone-500">
+                <button className="p-1 md:p-1.5 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors">
                   <Paperclip className="w-3 h-3 md:w-5 md:h-5" />
                 </button>
-                <button className="p-1 md:p-1.5 hover:bg-stone-100 rounded text-stone-500">
+                <button className="p-1 md:p-1.5 hover:bg-chat-hover rounded text-muted-foreground hover:text-foreground transition-colors">
                   <Smile className="w-3 h-3 md:w-5 md:h-5" />
                 </button>
               </div>
 
-              <button
+              <Button
                 onClick={handleSendMessage}
                 disabled={!currentMessage.trim()}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-stone-300 disabled:cursor-not-allowed text-white px-2 md:px-4 py-1 md:py-1.5 rounded flex items-center space-x-0.5 md:space-x-1 font-medium transition-colors text-xs md:text-base"
+                size="sm"
+                className="flex items-center space-x-0.5 md:space-x-1 text-xs md:text-base"
               >
                 <Send className="w-3 h-3 md:w-4 md:h-4" />
                 <span className="hidden sm:inline">Send</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>

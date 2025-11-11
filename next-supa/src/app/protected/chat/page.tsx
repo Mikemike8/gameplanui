@@ -1,19 +1,15 @@
-"use client";
+// src/app/chat/page.tsx
+import { auth0 } from '@/lib/auth0';
+import { redirect } from 'next/navigation';
+import TeamChannelInterface from '@/components/Dashboard/TeamChannelInterface';
 
-import React from "react";
-import TeamChannelInterface from "@/components/Dashboard/TeamChannelInterface";
+export default async function ChatPage() {
+  const session = await auth0.getSession();
 
-export default function ChatPage() {
-  // Replace with real user data (you can fetch from Supabase or auth context)
-  const userEmail = "test@example.com";
-  const userName = "Test User";
-  const userAvatar = "https://api.dicebear.com/7.x/notionists/svg?seed=test";
+  if (!session?.user) {
+    redirect('/auth/login');
+  }
 
-  return (
-    <TeamChannelInterface
-      userEmail={userEmail}
-      userName={userName}
-      userAvatar={userAvatar}
-    />
-  );
+  // Pass nothing – the client component fetches the user itself
+  return <TeamChannelInterface />;
 }
