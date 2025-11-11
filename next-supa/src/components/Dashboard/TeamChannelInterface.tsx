@@ -1,3 +1,6 @@
+
+"use client"
+
 // src/components/TeamChannelInterface.tsx
 import React, {
   useState,
