@@ -10,15 +10,5 @@ export default async function ChatPage() {
     redirect('/auth/login');
   }
 
-  const userEmail = session.user.email ?? '';
-  const userName = session.user.name ?? session.user.nickname ?? session.user.email?.split('@')[0] ?? 'User';
-  const userAvatar = session.user.picture ?? `https://api.dicebear.com/9.x/notionists/svg?seed=${userEmail}`;
-
-  return (
-    <TeamChannelInterface
-      userEmail={userEmail}
-      userName={userName}
-      userAvatar={userAvatar}
-    />
-  );
+  return <TeamChannelInterface />;
 }
