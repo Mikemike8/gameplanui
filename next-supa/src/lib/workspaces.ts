@@ -1,4 +1,5 @@
 // src/lib/workspaces.ts
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -28,7 +29,9 @@ export interface WorkspaceDetails {
 /**
  * Get or create the backend user from Auth0 session.user
  */
-export async function getOrCreateBackendUser(sessionUser: any): Promise<BackendUser> {
+export async function getOrCreateBackendUser(
+  sessionUser: any
+): Promise<BackendUser> {
   const email: string = sessionUser.email || "";
   const name: string =
     sessionUser.name ||
@@ -42,6 +45,10 @@ export async function getOrCreateBackendUser(sessionUser: any): Promise<BackendU
       email || name
     )}`;
 
+  // ✅ DEBUG LOGS (correct place)
+  console.log("🔍 Sending request to:", `${API_URL}/users/me`);
+  console.log("📨 Payload:", { name, email, avatar });
+
   const res = await fetch(`${API_URL}/users/me`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -49,6 +56,9 @@ export async function getOrCreateBackendUser(sessionUser: any): Promise<BackendU
   });
 
   if (!res.ok) {
+    console.log("❌ Backend responded with status:", res.status);
+    const text = await res.text();
+    console.log("❌ Backend error response:", text);
     throw new Error("Failed to sync user with backend");
   }
 
@@ -58,7 +68,9 @@ export async function getOrCreateBackendUser(sessionUser: any): Promise<BackendU
 /**
  * Get all workspaces for a backend user
  */
-export async function getMyWorkspaces(userId: string): Promise<WorkspaceSummary[]> {
+export async function getMyWorkspaces(
+  userId: string
+): Promise<WorkspaceSummary[]> {
   const res = await fetch(
     `${API_URL}/workspaces/my?user_id=${encodeURIComponent(userId)}`,
     { cache: "no-store" }
@@ -74,7 +86,9 @@ export async function getMyWorkspaces(userId: string): Promise<WorkspaceSummary[
 /**
  * Get details of a single workspace
  */
-export async function getWorkspace(workspaceId: string): Promise<WorkspaceDetails> {
+export async function getWorkspace(
+  workspaceId: string
+): Promise<WorkspaceDetails> {
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
     cache: "no-store",
   });
