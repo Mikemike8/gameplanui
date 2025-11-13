@@ -42,6 +42,32 @@ class MemberRole(str, enum.Enum):
 # ----------------------
 # Database Models
 # ----------------------
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    owner_id = Column(String(36), ForeignKey("users.id"))
+    is_personal = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User")
+    members = relationship("WorkspaceMember", back_populates="workspace")
+
+
+class WorkspaceMember(Base):
+    __tablename__ = "workspace_members"
+    id = Column(Integer, primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"))
+    user_id = Column(String(36), ForeignKey("users.id"))
+    role = Column(String(20), default="member")  # owner, admin, member
+    joined_at = Column(DateTime, default=datetime.utcnow)
+
+    workspace = relationship("Workspace", back_populates="members")
+    user = relationship("User")
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -52,15 +78,19 @@ class User(Base):
     last_seen = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
 class Channel(Base):
     __tablename__ = "channels"
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(String(36))
-    name = Column(String(100), nullable=False, unique=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=False)
+    name = Column(String(100), nullable=False)
     description = Column(Text)
     is_private = Column(Boolean, default=False)
     created_by = Column(String(36), ForeignKey('users.id'))
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    workspace = relationship("Workspace")
+
 
 class ChannelMember(Base):
     __tablename__ = "channel_members"
@@ -106,6 +136,17 @@ Base.metadata.create_all(bind=engine)
 # ----------------------
 # Pydantic Models
 # ----------------------
+
+class WorkspaceCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_personal: bool = False
+
+
+class WorkspaceJoinRequest(BaseModel):
+    invite_code: str
+    user_id: str
+
 class UserCreate(BaseModel):
     name: str
     email: str
@@ -185,6 +226,118 @@ def get_db():
 # ----------------------
 # USER ROUTES
 # ----------------------
+
+
+
+
+@app.post("/workspaces/create")
+def create_workspace(request: WorkspaceCreate, user_id: str, db: Session = Depends(get_db)):
+    workspace = Workspace(
+        id=str(uuid.uuid4()),
+        name=request.name,
+        description=request.description,
+        owner_id=user_id,
+        is_personal=request.is_personal
+    )
+    db.add(workspace)
+    db.commit()
+
+    # Add owner as member
+    member = WorkspaceMember(
+        workspace_id=workspace.id,
+        user_id=user_id,
+        role="owner"
+    )
+    db.add(member)
+    db.commit()
+
+    return {"workspace_id": workspace.id}
+
+
+
+@app.get("/workspaces/my")
+def get_my_workspaces(user_id: str, db: Session = Depends(get_db)):
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == user_id
+    ).all()
+
+    workspaces = []
+    for m in memberships:
+        w = db.query(Workspace).filter(Workspace.id == m.workspace_id).first()
+        if w:
+            workspaces.append({
+                "id": w.id,
+                "name": w.name,
+                "description": w.description,
+                "is_personal": w.is_personal,
+                "role": m.role
+            })
+
+    return workspaces
+
+
+
+
+
+@app.get("/workspaces/{workspace_id}")
+def get_workspace(workspace_id: str, db: Session = Depends(get_db)):
+    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    return {
+        "id": workspace.id,
+        "name": workspace.name,
+        "description": workspace.description,
+        "is_personal": workspace.is_personal,
+        "owner_id": workspace.owner_id
+    }
+
+
+
+
+@app.get("/workspaces/{workspace_id}/invite")
+def generate_invite_link(workspace_id: str, db: Session = Depends(get_db)):
+    invite_code = str(uuid.uuid4())[:8]  # short code
+
+    return {"invite_code": invite_code}
+
+
+
+
+
+
+
+@app.post("/workspaces/join")
+def join_workspace(request: WorkspaceJoinRequest, db: Session = Depends(get_db)):
+    # Here you can verify real invite codes later
+    # For now assume invite_code is workspace_id
+
+    workspace = db.query(Workspace).filter(Workspace.id == request.invite_code).first()
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Invalid invite code")
+
+    # Already member?
+    existing = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == request.user_id,
+        WorkspaceMember.workspace_id == workspace.id
+    ).first()
+
+    if existing:
+        return {"workspace_id": workspace.id}
+
+    member = WorkspaceMember(
+        workspace_id=workspace.id,
+        user_id=request.user_id,
+        role="member"
+    )
+    db.add(member)
+    db.commit()
+
+    return {"workspace_id": workspace.id}
+
+
+
 @app.post("/users/me")
 def get_or_create_user(
     request: UserCreate,
@@ -214,13 +367,36 @@ def get_or_create_user(
     db.commit()
     db.refresh(new_user)
 
+    # -------------------------------
+    # Create personal workspace
+    # -------------------------------
+    personal = Workspace(
+        id=str(uuid.uuid4()),
+        name=f"{new_user.name}'s Space",
+        owner_id=new_user.id,
+        is_personal=True
+    )
+    db.add(personal)
+    db.commit()
+
+    # Add them as member
+    db.add(WorkspaceMember(
+        workspace_id=personal.id,
+        user_id=new_user.id,
+        role="owner"
+    ))
+    db.commit()
+
+    # -------------------------------
+    # Final return
+    # -------------------------------
     return {
         "id": new_user.id,
         "name": new_user.name,
         "email": new_user.email,
         "avatar": new_user.avatar
     }
-
+ 
 @app.post("/users")
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user.email).first()
