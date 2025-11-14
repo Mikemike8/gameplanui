@@ -385,6 +385,7 @@ def get_or_create_user(request: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(member)
     db.commit()
+    print("📥 /users/me body:", request.dict())
 
     return serialize_user(new_user)
 

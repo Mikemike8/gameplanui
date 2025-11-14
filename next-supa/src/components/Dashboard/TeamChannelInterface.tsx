@@ -549,7 +549,7 @@ export default function TeamChannelInterface({
               </button>
               <button
                 onClick={() => {
-                  window.location.href = "/api/auth/logout";
+                  window.location.href = "/auth/logout";
                 }}
                 className="w-full text-left px-2 py-2 rounded hover:bg-destructive/10 text-destructive flex items-center gap-2"
               >
@@ -708,9 +708,16 @@ export default function TeamChannelInterface({
               <Users className="w-5 h-5" />
             </button>
 
-            <button className="p-2 hover:bg-accent rounded">
-              <Settings className="w-5 h-5" />
-            </button>
+            {/* Settings Button → Redirect to workspace settings */}
+<button
+  onClick={() =>
+    router.push(`/protected/workspace/${workspaceId}/settings`)
+  }
+  className="p-2 hover:bg-accent rounded"
+>
+  <Settings className="w-5 h-5" />
+</button>
+
           </div>
         </div>
 
