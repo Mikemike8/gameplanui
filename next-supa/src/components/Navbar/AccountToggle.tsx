@@ -20,8 +20,16 @@ export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
   };
 
   // --- Avatar & Name ---
-  const avatar = user?.picture || `https://api.dicebear.com/9.x/notionists/svg?seed=${email}`;
-  const displayName = user?.name || user?.nickname || email.split("@")[0];
+ const emaill = user?.email ?? "";
+
+const avatar =
+  user?.picture ||
+  `https://api.dicebear.com/9.x/notionists/svg?seed=${emaill}`;
+
+const displayName =
+  user?.name ||
+  user?.nickname ||
+  (email ? email.split("@")[0] : "Guest");
 
   // --- Loading state ---
   if (isLoading) {

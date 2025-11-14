@@ -1,141 +1,186 @@
-# main.py
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Enum as SQLEnum
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session, relationship
-from datetime import datetime
-from typing import Optional, List
-import socketio
+"""
+🔥 TEAM CHAT BACKEND — FastAPI + SQLAlchemy + Socket.IO
+
+Frontend expectations it supports:
+
+REST:
+- POST /users/me                          -> create or return backend user
+- GET  /workspaces/my?user_id=...        -> list user's workspaces
+- GET  /workspaces/{workspace_id}        -> workspace details
+- POST /workspaces/create?user_id=...    -> create workspace
+- POST /workspaces/join                  -> join via invite_code
+- GET  /channels?workspace_id=...        -> list channels
+- POST /channels                         -> create channel
+- GET  /messages?channel_id=...          -> list messages in channel
+- POST /messages                         -> create message
+- PATCH /messages/{message_id}/pin       -> pin / unpin message
+- POST /reactions                        -> toggle reaction on a message
+
+Socket.IO events (server -> client):
+- "new-message"      -> broadcast new message payload
+- "message-pinned"   -> broadcast pin state changes
+- "reaction-added"   -> broadcast new message reaction state
+
+Socket.IO events (client -> server, optional / future-ready):
+- "join_workspace"   -> join a workspace room
+- "typing"           -> emit typing state (currently not used by FE)
+"""
+
+import os
 import enum
 import uuid
+import secrets
+import string
+from datetime import datetime
+from typing import Optional, Dict, Any, List
 
-# ----------------------
-# PostgreSQL connection
-# ----------------------
-DB_USER = "postgres"
-DB_PASSWORD = "Lilmike800#"
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "PythonFastApi"
+from dotenv import load_dotenv
+from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Enum as SQLEnum,
+)
+from sqlalchemy.orm import (
+    declarative_base,
+    sessionmaker,
+    Session,
+    relationship,
+)
+import socketio
 
-DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# ------------------------------------------------------
+# ENV & DATABASE CONFIG
+# ------------------------------------------------------
 
-engine = create_engine(DATABASE_URL)
+load_dotenv()
+
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
+DATABASE_URL = (
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
+
+print(f"🔌 Using database: {DATABASE_URL}")
+
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# ----------------------
-# Enums
-# ----------------------
+# ------------------------------------------------------
+# ENUMS
+# ------------------------------------------------------
+
+
 class UserStatus(str, enum.Enum):
     online = "online"
     away = "away"
     offline = "offline"
 
-class MemberRole(str, enum.Enum):
-    owner = "owner"
-    admin = "admin"
-    member = "member"
 
-# ----------------------
-# Database Models
-# ----------------------
+# ------------------------------------------------------
+# MODELS
+# ------------------------------------------------------
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
+    avatar = Column(String(500))
+    status = Column(SQLEnum(UserStatus), default=UserStatus.online)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 class Workspace(Base):
     __tablename__ = "workspaces"
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+    id = Column(String(36), primary_key=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     owner_id = Column(String(36), ForeignKey("users.id"))
     is_personal = Column(Boolean, default=False)
+    invite_code = Column(String(64), unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    owner = relationship("User")
     members = relationship("WorkspaceMember", back_populates="workspace")
 
 
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
+
     id = Column(Integer, primary_key=True)
     workspace_id = Column(String(36), ForeignKey("workspaces.id"))
     user_id = Column(String(36), ForeignKey("users.id"))
-    role = Column(String(20), default="member")  # owner, admin, member
+    role = Column(String(20), default="member")
     joined_at = Column(DateTime, default=datetime.utcnow)
 
     workspace = relationship("Workspace", back_populates="members")
     user = relationship("User")
 
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False, unique=True)
-    avatar = Column(String(500))
-    status = Column(SQLEnum(UserStatus), default=UserStatus.online)
-    last_seen = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
 class Channel(Base):
     __tablename__ = "channels"
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    workspace_id = Column(String(36), ForeignKey("workspaces.id"), nullable=False)
-    name = Column(String(100), nullable=False)
-    description = Column(Text)
+
+    id = Column(String(36), primary_key=True)
+    workspace_id = Column(String(36), ForeignKey("workspaces.id"))
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
     is_private = Column(Boolean, default=False)
-    created_by = Column(String(36), ForeignKey('users.id'))
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    workspace = relationship("Workspace")
-
-
-class ChannelMember(Base):
-    __tablename__ = "channel_members"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    channel_id = Column(String(36), ForeignKey('channels.id'), nullable=False)
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
-    role = Column(SQLEnum(MemberRole), default=MemberRole.member)
-    joined_at = Column(DateTime, default=datetime.utcnow)
 
 class Message(Base):
     __tablename__ = "messages"
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    channel_id = Column(String(36), ForeignKey('channels.id'), nullable=False)
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+
+    id = Column(String(36), primary_key=True)
+    channel_id = Column(String(36), ForeignKey("channels.id"))
+    user_id = Column(String(36), ForeignKey("users.id"))
     content = Column(Text, nullable=False)
-    is_pinned = Column(Boolean, default=False)
-    pinned_by = Column(String(36), ForeignKey('users.id'), nullable=True)
-    pinned_at = Column(DateTime, nullable=True)
-    parent_message_id = Column(String(36), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    edited_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)
+
+    is_pinned = Column(Boolean, default=False)
+    pinned_by = Column(String(36), ForeignKey("users.id"), nullable=True)
+    pinned_at = Column(DateTime, nullable=True)
+
 
 class MessageReaction(Base):
     __tablename__ = "message_reactions"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    message_id = Column(String(36), ForeignKey('messages.id'), nullable=False)
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
+
+    id = Column(Integer, primary_key=True)
+    message_id = Column(String(36), ForeignKey("messages.id"))
+    user_id = Column(String(36), ForeignKey("users.id"))
     emoji = Column(String(10), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-class UserReadMarker(Base):
-    __tablename__ = "user_read_markers"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(36), ForeignKey('users.id'), nullable=False)
-    channel_id = Column(String(36), ForeignKey('channels.id'), nullable=False)
-    last_read_message_id = Column(String(36))
-    last_read_at = Column(DateTime, default=datetime.utcnow)
 
-# Create all tables
+# Create tables
 Base.metadata.create_all(bind=engine)
 
-# ----------------------
-# Pydantic Models
-# ----------------------
+# ------------------------------------------------------
+# Pydantic SCHEMAS (request bodies)
+# ------------------------------------------------------
+
+
+class UserCreate(BaseModel):
+    name: str
+    email: str
+    avatar: Optional[str] = None
+
 
 class WorkspaceCreate(BaseModel):
     name: str
@@ -143,528 +188,552 @@ class WorkspaceCreate(BaseModel):
     is_personal: bool = False
 
 
-class WorkspaceJoinRequest(BaseModel):
-    invite_code: str
-    user_id: str
-
-class UserCreate(BaseModel):
-    name: str
-    email: str
-    avatar: Optional[str] = None
-
 class ChannelCreate(BaseModel):
+    workspace_id: str
     name: str
     description: Optional[str] = None
     is_private: bool = False
 
+
 class MessageCreate(BaseModel):
-    content: str
     channel_id: str
     user_id: str
+    content: str
+
 
 class ReactionCreate(BaseModel):
     message_id: str
     user_id: str
     emoji: str
 
+
 class PinMessageRequest(BaseModel):
     is_pinned: bool
     user_id: str
 
-# ----------------------
-# Socket.IO setup
-# ----------------------
+
+class JoinWorkspaceRequest(BaseModel):
+    invite_code: str
+    user_id: str
+
+
+# ------------------------------------------------------
+# SOCKET.IO SERVER
+# ------------------------------------------------------
+
 sio = socketio.AsyncServer(
-    async_mode='asgi',
-    cors_allowed_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://gameplanuipro.onrender.com" 
-    ]
+    async_mode="asgi",
+    cors_allowed_origins="*",
 )
 
-# ----------------------
-# FastAPI app
-# ----------------------
-app = FastAPI(title="Team Chat API")
 
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://gameplanuipro.onrender.com" 
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ----------------------
-# Socket.IO events
-# ----------------------
 @sio.event
-async def connect(sid, environ):
-    print(f"Client connected: {sid}")
+async def connect(sid, environ, auth):
+    print(f"🔗 Socket connected: {sid}")
+
 
 @sio.event
 async def disconnect(sid):
-    print(f"Client disconnected: {sid}")
+    print(f"🔌 Socket disconnected: {sid}")
 
-# ----------------------
-# Dependency
-# ----------------------
-def get_db():
+
+@sio.event
+async def join_workspace(sid, workspace_id: str):
+    """
+    (Optional) Let clients join a workspace-specific room.
+    Your current frontend doesn't emit this yet, but it's ready to use.
+    """
+    await sio.enter_room(sid, workspace_id)
+    print(f"🚪 Socket {sid} joined workspace room {workspace_id}")
+
+
+@sio.event
+async def typing(sid, data):
+    """
+    Typing indicator support (optional).
+    If in the future you emit `socket.emit("typing", { id, name })`,
+    other clients will receive `user_typing`.
+    """
+    await sio.emit("user_typing", data, skip_sid=sid)
+
+
+# ------------------------------------------------------
+# FASTAPI APP
+# ------------------------------------------------------
+
+fastapi_app = FastAPI(title="Team Chat API")
+
+fastapi_app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["*"],  # dev; restrict in prod
+  allow_credentials=True,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
+
+
+def get_db() -> Session:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-# ----------------------
-# USER ROUTES
-# ----------------------
+
+# ------------------------------------------------------
+# HELPERS
+# ------------------------------------------------------
 
 
+def generate_invite_code(length: int = 10) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
-@app.post("/workspaces/create")
-def create_workspace(request: WorkspaceCreate, user_id: str, db: Session = Depends(get_db)):
-    workspace = Workspace(
-        id=str(uuid.uuid4()),
-        name=request.name,
-        description=request.description,
-        owner_id=user_id,
-        is_personal=request.is_personal
-    )
-    db.add(workspace)
-    db.commit()
-
-    # Add owner as member
-    member = WorkspaceMember(
-        workspace_id=workspace.id,
-        user_id=user_id,
-        role="owner"
-    )
-    db.add(member)
-    db.commit()
-
-    return {"workspace_id": workspace.id}
-
-
-
-@app.get("/workspaces/my")
-def get_my_workspaces(user_id: str, db: Session = Depends(get_db)):
-    memberships = db.query(WorkspaceMember).filter(
-        WorkspaceMember.user_id == user_id
-    ).all()
-
-    workspaces = []
-    for m in memberships:
-        w = db.query(Workspace).filter(Workspace.id == m.workspace_id).first()
-        if w:
-            workspaces.append({
-                "id": w.id,
-                "name": w.name,
-                "description": w.description,
-                "is_personal": w.is_personal,
-                "role": m.role
-            })
-
-    return workspaces
-
-
-
-
-
-@app.get("/workspaces/{workspace_id}")
-def get_workspace(workspace_id: str, db: Session = Depends(get_db)):
-    workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-
+def serialize_user(user: User) -> Dict[str, Any]:
     return {
-        "id": workspace.id,
-        "name": workspace.name,
-        "description": workspace.description,
-        "is_personal": workspace.is_personal,
-        "owner_id": workspace.owner_id
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "avatar": user.avatar or "",
+        # Frontend's ApiUser doesn't define status, but it's fine to send extra
+        "status": user.status.value if isinstance(user.status, UserStatus) else "online",
     }
 
 
+def serialize_message(db: Session, msg: Message) -> Dict[str, Any]:
+    """
+    Shape matches your ApiMessage in TS:
+
+    interface ApiMessage {
+      id: string;
+      content: string;
+      timestamp: string;
+      user: ApiUser | null;
+      reactions: { emoji: string; count: number; users: string[] }[];
+      isPinned: boolean;
+      pinnedBy?: string;
+    }
+    """
+    user = db.query(User).filter(User.id == msg.user_id).first()
+    reactions = db.query(MessageReaction).filter(
+        MessageReaction.message_id == msg.id
+    ).all()
+
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for r in reactions:
+        if r.emoji not in grouped:
+            grouped[r.emoji] = {"emoji": r.emoji, "count": 0, "users": []}
+        grouped[r.emoji]["count"] += 1
+        grouped[r.emoji]["users"].append(r.user_id)
+
+    return {
+        "id": msg.id,
+        "content": msg.content,
+        "timestamp": msg.created_at.isoformat(),
+        "user": serialize_user(user) if user else None,
+        "reactions": list(grouped.values()),
+        "isPinned": msg.is_pinned,
+        "pinnedBy": msg.pinned_by,
+    }
 
 
-@app.get("/workspaces/{workspace_id}/invite")
-def generate_invite_link(workspace_id: str, db: Session = Depends(get_db)):
-    invite_code = str(uuid.uuid4())[:8]  # short code
-
-    return {"invite_code": invite_code}
+# ------------------------------------------------------
+# USERS
+# ------------------------------------------------------
 
 
+@fastapi_app.post("/users/me")
+def get_or_create_user(request: UserCreate, db: Session = Depends(get_db)):
+    """
+    Called from TeamChannelInterface.loadCurrentUser()
 
-
-
-
-
-@app.post("/workspaces/join")
-def join_workspace(request: WorkspaceJoinRequest, db: Session = Depends(get_db)):
-    # Here you can verify real invite codes later
-    # For now assume invite_code is workspace_id
-
-    workspace = db.query(Workspace).filter(Workspace.id == request.invite_code).first()
-    if not workspace:
-        raise HTTPException(status_code=404, detail="Invalid invite code")
-
-    # Already member?
-    existing = db.query(WorkspaceMember).filter(
-        WorkspaceMember.user_id == request.user_id,
-        WorkspaceMember.workspace_id == workspace.id
-    ).first()
-
+    Body: { name, email, avatar }
+    Returns: ApiUser
+    """
+    existing = db.query(User).filter(User.email == request.email).first()
     if existing:
-        return {"workspace_id": workspace.id}
+        return serialize_user(existing)
 
-    member = WorkspaceMember(
-        workspace_id=workspace.id,
-        user_id=request.user_id,
-        role="member"
-    )
-    db.add(member)
-    db.commit()
-
-    return {"workspace_id": workspace.id}
-
-
-
-@app.post("/users/me")
-def get_or_create_user(
-    request: UserCreate,
-    db: Session = Depends(get_db)
-):
-    """Get or create user by email - Used for Auth0 authentication"""
-    # Find user by email
-    db_user = db.query(User).filter(User.email == request.email).first()
-    
-    if db_user:
-        return {
-            "id": db_user.id,
-            "name": db_user.name,
-            "email": db_user.email,
-            "avatar": db_user.avatar
-        }
-
-    # Create new user
-    avatar = request.avatar or f"https://api.dicebear.com/7.x/avataaars/svg?seed={request.email}"
     new_user = User(
         id=str(uuid.uuid4()),
         name=request.name or request.email.split("@")[0],
         email=request.email,
-        avatar=avatar
+        avatar=request.avatar,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
 
-    # -------------------------------
-    # Create personal workspace
-    # -------------------------------
-    personal = Workspace(
+    # Create personal workspace on first login
+    personal_ws = Workspace(
         id=str(uuid.uuid4()),
         name=f"{new_user.name}'s Space",
+        description="Your personal workspace",
         owner_id=new_user.id,
-        is_personal=True
+        is_personal=True,
+        invite_code=generate_invite_code(),
     )
-    db.add(personal)
+    db.add(personal_ws)
     db.commit()
+    db.refresh(personal_ws)
 
-    # Add them as member
-    db.add(WorkspaceMember(
-        workspace_id=personal.id,
+    member = WorkspaceMember(
+        workspace_id=personal_ws.id,
         user_id=new_user.id,
-        role="owner"
-    ))
-    db.commit()
-
-    # -------------------------------
-    # Final return
-    # -------------------------------
-    return {
-        "id": new_user.id,
-        "name": new_user.name,
-        "email": new_user.email,
-        "avatar": new_user.avatar
-    }
- 
-@app.post("/users")
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == user.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already exists")
-    
-    db_user = User(
-        id=str(uuid.uuid4()),
-        name=user.name,
-        email=user.email,
-        avatar=user.avatar or f"https://api.dicebear.com/7.x/notionists/svg?seed={user.name}"
+        role="owner",
     )
-    db.add(db_user)
+    db.add(member)
     db.commit()
-    db.refresh(db_user)
-    return db_user
 
-@app.get("/users")
-def get_users(db: Session = Depends(get_db)):
-    return db.query(User).all()
+    return serialize_user(new_user)
 
-@app.get("/users/{user_id}")
-def get_user(user_id: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
 
-# ----------------------
-# CHANNEL ROUTES
-# ----------------------
-@app.post("/channels")
-def create_channel(channel: ChannelCreate, db: Session = Depends(get_db)):
-    existing = db.query(Channel).filter(Channel.name == channel.name).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Channel name already exists")
-    
-    db_channel = Channel(
-        id=str(uuid.uuid4()),
-        name=channel.name,
-        description=channel.description,
-        is_private=channel.is_private
-    )
-    db.add(db_channel)
-    db.commit()
-    db.refresh(db_channel)
-    return db_channel
+# ------------------------------------------------------
+# WORKSPACES
+# ------------------------------------------------------
 
-@app.get("/channels")
-def get_channels(db: Session = Depends(get_db)):
-    return db.query(Channel).all()
 
-@app.get("/channels/{channel_id}")
-def get_channel(channel_id: str, db: Session = Depends(get_db)):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
-    if not channel:
-        raise HTTPException(status_code=404, detail="Channel not found")
-    return channel
+@fastapi_app.get("/workspaces/my")
+def my_workspaces(user_id: str, db: Session = Depends(get_db)):
+    """
+    Used in TeamChannelInterface to populate workspace switcher.
 
-# ----------------------
-# MESSAGE ROUTES
-# ----------------------
-@app.post("/messages")
-async def create_message(message: MessageCreate, db: Session = Depends(get_db)):
-    # Get user info
-    user = db.query(User).filter(User.id == message.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Create message
-    db_message = Message(
-        id=str(uuid.uuid4()),
-        content=message.content,
-        channel_id=message.channel_id,
-        user_id=message.user_id
-    )
-    db.add(db_message)
-    db.commit()
-    db.refresh(db_message)
-    
-    # Prepare message data for broadcast
-    message_data = {
-        "id": db_message.id,
-        "content": db_message.content,
-        "timestamp": db_message.created_at.isoformat(),
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "avatar": user.avatar,
-            "status": user.status.value
-        },
-        "reactions": [],
-        "isPinned": db_message.is_pinned,
-        "pinnedBy": db_message.pinned_by
-    }
-    
-    # Broadcast to all connected clients
-    await sio.emit('new-message', message_data)
-    
-    return message_data
+    Returns array of WorkspaceSummary:
+    { id, name, role, is_personal }
+    (We can also return description/invite_code as extra data.)
+    """
+    memberships = db.query(WorkspaceMember).filter(
+        WorkspaceMember.user_id == user_id
+    ).all()
 
-@app.get("/messages")
-def get_messages(channel_id: Optional[str] = None, db: Session = Depends(get_db)):
-    query = db.query(Message)
-    if channel_id:
-        query = query.filter(Message.channel_id == channel_id)
-    
-    messages = query.order_by(Message.created_at).all()
-    
     result = []
-    for msg in messages:
-        user = db.query(User).filter(User.id == msg.user_id).first()
-        reactions = db.query(MessageReaction).filter(MessageReaction.message_id == msg.id).all()
-        
-        # Group reactions by emoji
-        reaction_dict = {}
-        for r in reactions:
-            if r.emoji not in reaction_dict:
-                reaction_dict[r.emoji] = {"emoji": r.emoji, "count": 0, "users": []}
-            reaction_dict[r.emoji]["count"] += 1
-            reaction_dict[r.emoji]["users"].append(r.user_id)
-        
-        result.append({
-            "id": msg.id,
-            "content": msg.content,
-            "timestamp": msg.created_at.isoformat(),
-            "user": {
-                "id": user.id,
-                "name": user.name,
-                "avatar": user.avatar,
-                "status": user.status.value
-            } if user else None,
-            "reactions": list(reaction_dict.values()),
-            "isPinned": msg.is_pinned,
-            "pinnedBy": msg.pinned_by
-        })
-    
+    for m in memberships:
+        ws = db.query(Workspace).filter(Workspace.id == m.workspace_id).first()
+        if ws:
+            result.append(
+                {
+                    "id": ws.id,
+                    "name": ws.name,
+                    "description": ws.description,
+                    "role": m.role,
+                    "is_personal": ws.is_personal,
+                    "invite_code": ws.invite_code,
+                }
+            )
+
     return result
 
-@app.patch("/messages/{message_id}/pin")
-async def toggle_pin_message(message_id: str, request: PinMessageRequest, db: Session = Depends(get_db)):
-    message = db.query(Message).filter(Message.id == message_id).first()
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-    
-    message.is_pinned = request.is_pinned
-    message.pinned_by = request.user_id if request.is_pinned else None
-    message.pinned_at = datetime.utcnow() if request.is_pinned else None
-    
-    db.commit()
-    db.refresh(message)
-    
-    # Broadcast pin update
-    await sio.emit('message-pinned', {
-        "message_id": message_id,
-        "is_pinned": message.is_pinned,
-        "pinned_by": message.pinned_by
-    })
-    
-    return {"message": "Pin status updated", "is_pinned": message.is_pinned}
 
-# ----------------------
-# REACTION ROUTES
-# ----------------------
-@app.post("/reactions")
-async def add_reaction(reaction: ReactionCreate, db: Session = Depends(get_db)):
-    # Check if reaction already exists
-    existing = db.query(MessageReaction).filter(
-        MessageReaction.message_id == reaction.message_id,
-        MessageReaction.user_id == reaction.user_id,
-        MessageReaction.emoji == reaction.emoji
-    ).first()
-    
+@fastapi_app.get("/workspaces/{workspace_id}")
+def get_workspace(workspace_id: str, db: Session = Depends(get_db)):
+    """
+    In case you need details on a single workspace.
+    """
+    ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    return {
+        "id": ws.id,
+        "name": ws.name,
+        "description": ws.description,
+        "owner_id": ws.owner_id,
+        "is_personal": ws.is_personal,
+        "invite_code": ws.invite_code,
+    }
+
+
+@fastapi_app.post("/workspaces/create")
+def create_workspace(
+    body: WorkspaceCreate,
+    user_id: str = Query(..., description="Owner user id"),
+    db: Session = Depends(get_db),
+):
+    """
+    Used by CreateWorkspaceForm
+
+    Query: ?user_id=...
+    Body: { name, description, is_personal }
+    """
+    ws = Workspace(
+        id=str(uuid.uuid4()),
+        name=body.name,
+        description=body.description or "",
+        owner_id=user_id,
+        is_personal=body.is_personal,
+        invite_code=generate_invite_code(),
+    )
+    db.add(ws)
+    db.commit()
+    db.refresh(ws)
+
+    member = WorkspaceMember(
+        workspace_id=ws.id,
+        user_id=user_id,
+        role="owner",
+    )
+    db.add(member)
+    db.commit()
+
+    return {
+        "workspace_id": ws.id,
+        "invite_code": ws.invite_code,
+    }
+
+
+@fastapi_app.post("/workspaces/join")
+def join_workspace(body: JoinWorkspaceRequest, db: Session = Depends(get_db)):
+    """
+    Used by JoinWorkspaceForm
+
+    Body: { invite_code, user_id }
+    Returns: { workspace_id, role }
+    """
+    ws = (
+        db.query(Workspace)
+        .filter(Workspace.invite_code == body.invite_code)
+        .first()
+    )
+
+    if not ws:
+        raise HTTPException(status_code=400, detail="Invalid or expired invite code")
+
+    existing = (
+        db.query(WorkspaceMember)
+        .filter(
+            WorkspaceMember.workspace_id == ws.id,
+            WorkspaceMember.user_id == body.user_id,
+        )
+        .first()
+    )
+
     if existing:
-        # Remove reaction (toggle off)
+        return {"workspace_id": ws.id, "role": existing.role}
+
+    member = WorkspaceMember(
+        workspace_id=ws.id,
+        user_id=body.user_id,
+        role="member",
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+
+    return {"workspace_id": ws.id, "role": member.role}
+
+
+# ------------------------------------------------------
+# CHANNELS
+# ------------------------------------------------------
+
+
+@fastapi_app.get("/channels")
+def get_channels(workspace_id: str, db: Session = Depends(get_db)):
+    """
+    Used in TeamChannelInterface.loadChannels()
+    """
+    channels = db.query(Channel).filter(
+        Channel.workspace_id == workspace_id
+    ).all()
+
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "is_private": c.is_private,
+        }
+        for c in channels
+    ]
+
+
+@fastapi_app.post("/channels")
+def create_channel(body: ChannelCreate, db: Session = Depends(get_db)):
+    """
+    Used in TeamChannelInterface.handleCreateChannel()
+    """
+    exists = (
+        db.query(Channel)
+        .filter(
+            Channel.workspace_id == body.workspace_id,
+            Channel.name == body.name,
+        )
+        .first()
+    )
+
+    if exists:
+        raise HTTPException(status_code=400, detail="Channel already exists")
+
+    ch = Channel(
+        id=str(uuid.uuid4()),
+        workspace_id=body.workspace_id,
+        name=body.name,
+        description=body.description or "",
+        is_private=body.is_private,
+    )
+    db.add(ch)
+    db.commit()
+    db.refresh(ch)
+
+    return {
+        "id": ch.id,
+        "name": ch.name,
+        "description": ch.description,
+        "is_private": ch.is_private,
+    }
+
+
+# ------------------------------------------------------
+# MESSAGES
+# ------------------------------------------------------
+
+
+@fastapi_app.get("/messages")
+def get_messages(channel_id: str, db: Session = Depends(get_db)):
+    """
+    Used in TeamChannelInterface.loadMessages()
+    """
+    msgs = (
+        db.query(Message)
+        .filter(Message.channel_id == channel_id)
+        .order_by(Message.created_at)
+        .all()
+    )
+    return [serialize_message(db, m) for m in msgs]
+
+
+@fastapi_app.post("/messages")
+async def create_message(body: MessageCreate, db: Session = Depends(get_db)):
+    """
+    Used in TeamChannelInterface.handleSendMessage()
+
+    Body: { channel_id, user_id, content }
+    """
+    msg = Message(
+        id=str(uuid.uuid4()),
+        channel_id=body.channel_id,
+        user_id=body.user_id,
+        content=body.content,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    serialized = serialize_message(db, msg)
+
+    # Current frontend connects globally, so broadcast to all sockets.
+    # Later you can optimize to per-workspace or per-channel rooms.
+    await sio.emit("new-message", serialized)
+
+    return serialized
+
+
+# ------------------------------------------------------
+# PINNING & REACTIONS
+# ------------------------------------------------------
+
+
+@fastapi_app.patch("/messages/{message_id}/pin")
+async def pin_message(
+    message_id: str,
+    body: PinMessageRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Used in TeamChannelInterface.togglePinMessage()
+
+    Body: { is_pinned, user_id }
+
+    Socket event payload matches the TS handler:
+
+    socket.on("message-pinned", (data: { message_id: string; is_pinned: boolean; pinned_by?: string }) => {
+      ...
+    });
+    """
+    msg = db.query(Message).filter(Message.id == message_id).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    msg.is_pinned = body.is_pinned
+    msg.pinned_by = body.user_id if body.is_pinned else None
+    msg.pinned_at = datetime.utcnow() if body.is_pinned else None
+    db.commit()
+
+    payload = {
+        "message_id": msg.id,
+        "is_pinned": msg.is_pinned,
+        "pinned_by": msg.pinned_by,
+    }
+
+    await sio.emit("message-pinned", payload)
+    return payload
+
+
+@fastapi_app.post("/reactions")
+async def add_reaction(body: ReactionCreate, db: Session = Depends(get_db)):
+    """
+    Used in TeamChannelInterface.addReaction()
+    Frontend listens to "reaction-added" and then calls loadMessages().
+    """
+    existing = (
+        db.query(MessageReaction)
+        .filter(
+            MessageReaction.message_id == body.message_id,
+            MessageReaction.user_id == body.user_id,
+            MessageReaction.emoji == body.emoji,
+        )
+        .first()
+    )
+
+    if existing:
         db.delete(existing)
         db.commit()
-        action = "removed"
     else:
-        # Add reaction
-        db_reaction = MessageReaction(
-            message_id=reaction.message_id,
-            user_id=reaction.user_id,
-            emoji=reaction.emoji
+        db.add(
+            MessageReaction(
+                message_id=body.message_id,
+                user_id=body.user_id,
+                emoji=body.emoji,
+            )
         )
-        db.add(db_reaction)
         db.commit()
-        action = "added"
-    
-    # Get all reactions for this message
+
+    # Recompute reactions for this message
     reactions = db.query(MessageReaction).filter(
-        MessageReaction.message_id == reaction.message_id
+        MessageReaction.message_id == body.message_id
     ).all()
-    
-    # Group by emoji
-    reaction_dict = {}
+
+    grouped: Dict[str, Dict[str, Any]] = {}
     for r in reactions:
-        if r.emoji not in reaction_dict:
-            reaction_dict[r.emoji] = {"emoji": r.emoji, "count": 0, "users": []}
-        reaction_dict[r.emoji]["count"] += 1
-        reaction_dict[r.emoji]["users"].append(r.user_id)
-    
-    # Broadcast reaction update with full reaction list
-    await sio.emit('reaction-added', {
-        "message_id": reaction.message_id,
-        "reactions": list(reaction_dict.values())
-    })
-    
-    return {"message": f"Reaction {action}", "emoji": reaction.emoji}
+        if r.emoji not in grouped:
+            grouped[r.emoji] = {"emoji": r.emoji, "count": 0, "users": []}
+        grouped[r.emoji]["count"] += 1
+        grouped[r.emoji]["users"].append(r.user_id)
 
-@app.get("/messages/{message_id}/reactions")
-def get_reactions(message_id: str, db: Session = Depends(get_db)):
-    reactions = db.query(MessageReaction).filter(MessageReaction.message_id == message_id).all()
-    
-    # Group by emoji
-    reaction_dict = {}
-    for r in reactions:
-        if r.emoji not in reaction_dict:
-            reaction_dict[r.emoji] = {"emoji": r.emoji, "count": 0, "users": []}
-        reaction_dict[r.emoji]["count"] += 1
-        reaction_dict[r.emoji]["users"].append(r.user_id)
-    
-    return list(reaction_dict.values())
+    payload = {
+        "message_id": body.message_id,
+        "reactions": list(grouped.values()),
+    }
 
-# ----------------------
-# READ MARKERS
-# ----------------------
-@app.post("/channels/{channel_id}/mark-read")
-def mark_channel_read(channel_id: str, user_id: str, db: Session = Depends(get_db)):
-    # Get last message in channel
-    last_message = db.query(Message).filter(
-        Message.channel_id == channel_id
-    ).order_by(Message.created_at.desc()).first()
-    
-    if not last_message:
-        return {"message": "No messages to mark as read"}
-    
-    # Update or create read marker
-    marker = db.query(UserReadMarker).filter(
-        UserReadMarker.user_id == user_id,
-        UserReadMarker.channel_id == channel_id
-    ).first()
-    
-    if marker:
-        marker.last_read_message_id = last_message.id
-        marker.last_read_at = datetime.utcnow()
-    else:
-        marker = UserReadMarker(
-            user_id=user_id,
-            channel_id=channel_id,
-            last_read_message_id=last_message.id
-        )
-        db.add(marker)
-    
-    db.commit()
-    return {"message": "Channel marked as read"}
+    await sio.emit("reaction-added", payload)
+    return payload
 
-# ----------------------
-# Root route
-# ----------------------
-@app.get("/")
-def hello_world():
-    return {"message": "Team Chat API with WebSocket Support"}
 
-# ----------------------
-# Combine FastAPI with Socket.IO
-# ----------------------
-socket_app = socketio.ASGIApp(sio, app)
+# ------------------------------------------------------
+# ROOT
+# ------------------------------------------------------
 
-# Export for uvicorn
-application = socket_app
+
+@fastapi_app.get("/")
+def root():
+    return {"status": "ok", "message": "Team Chat API Running 🚀"}
+
+
+# ------------------------------------------------------
+# ASGI APP (for uvicorn main:app --reload)
+# ------------------------------------------------------
+
+app = socketio.ASGIApp(sio, fastapi_app)
+
+print("🚀 Backend ready: FastAPI + Socket.IO operational")

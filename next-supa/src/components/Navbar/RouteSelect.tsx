@@ -16,7 +16,6 @@ import {
   FiMessageCircle,
   FiCalendar,
   FiClock,
-  FiLink,
   FiSettings,
   FiBell,
   FiFolder,
@@ -25,16 +24,17 @@ import {
   FiLogIn,
 } from "react-icons/fi";
 
+// 💡 Correct typing for icon components:
 interface RouteItem {
   title: string;
   href: string;
-  Icon: any;
+  Icon: React.ComponentType<{ className?: string }>;
 }
 
 const workspaceRoutes: RouteItem[] = [
   { title: "My Spaces", href: "/protected/spaces", Icon: FiGrid },
   { title: "Create Space", href: "/protected/spaces/create", Icon: FiPlusCircle },
-  { title: "Join Space", href: "/protected/spaces/join/demo", Icon: FiLogIn }, // dynamic
+  { title: "Join Space", href: "/protected/spaces/join/demo", Icon: FiLogIn },
 ];
 
 const appRoutes: RouteItem[] = [

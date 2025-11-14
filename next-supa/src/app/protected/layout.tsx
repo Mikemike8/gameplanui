@@ -1,33 +1,41 @@
 // src/app/protected/layout.tsx
+import React from "react";
 import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
-import { Navbar } from "@/components/Navbar/Navbar";
-import { getOrCreateBackendUser, getMyWorkspaces } from "@/lib/workspaces";
+import { getOrCreateBackendUser, type Auth0User } from "@/lib/workspaces";
+import { UserProvider } from "@/context/UserContext";
 
-export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+export default async function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth0.getSession();
 
   if (!session?.user) {
-    redirect("/auth/login?returnTo=/protected");
+    redirect("/auth/login");
   }
 
   // Sync backend user
-  const backendUser = await getOrCreateBackendUser(session.user);
+  const backendUser = await getOrCreateBackendUser(session.user as Auth0User);
 
-  // Check workspaces
-  const workspaces = await getMyWorkspaces(backendUser.id);
-
-  // 👇 If the user has no workspaces, send them to the create/join page
-  if (workspaces.length === 0) {
-    redirect("/protected/spaces");
-  }
+  // Store in localStorage on the client
+  const serializedUser = JSON.stringify(backendUser);
 
   return (
-    <div className="flex flex-col w-full h-screen overflow-hidden">
-      <Navbar email={session.user.email || "User"} />
-      <main className="flex-1 overflow-auto p-4 bg-stone-50">
-        <div className="max-w-7xl mx-auto">{children}</div>
+    <UserProvider>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `localStorage.setItem("backendUser", '${serializedUser.replace(
+            /'/g,
+            "\\'"
+          )}');`,
+        }}
+      />
+      {/* No navbar - chat interface is full-screen */}
+      <main className="h-screen overflow-hidden bg-background">
+        {children}
       </main>
-    </div>
+    </UserProvider>
   );
 }

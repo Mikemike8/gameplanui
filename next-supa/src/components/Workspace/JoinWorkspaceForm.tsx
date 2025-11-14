@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface JoinWorkspaceFormProps {
   userId: string;
@@ -27,31 +26,37 @@ export const JoinWorkspaceForm = ({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!inviteCode.trim()) return;
+
+    const trimmedCode = inviteCode.trim();
+    if (!trimmedCode) {
+      setError("Invite code cannot be empty.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      setError(null);
-
       const res = await fetch(`${API_URL}/workspaces/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          invite_code: inviteCode.trim(),
+          invite_code: trimmedCode,
           user_id: userId,
         }),
       });
 
       if (!res.ok) {
-        throw new Error("Invalid or expired invite code");
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Invalid or expired invite code.");
       }
 
       const data = await res.json();
-      const workspaceId = data.workspace_id;
-
-      router.push(`/protected/workspace/${workspaceId}`);
-    } catch (err: any) {
-      setError(err.message ?? "Failed to join workspace");
+      router.push(`/protected/workspace/${data.workspace_id}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to join workspace.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -60,9 +65,9 @@ export const JoinWorkspaceForm = ({
   return (
     <form
       onSubmit={onSubmit}
-      className={cn("space-y-3 bg-white border rounded-md p-4", className)}
+      className={cn("space-y-5 bg-white border rounded-md p-6 shadow-sm", className)}
     >
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label htmlFor="invite-code">Join with invite code</Label>
         <Input
           id="invite-code"
@@ -74,9 +79,9 @@ export const JoinWorkspaceForm = ({
       </div>
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1">
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
           {error}
-        </p>
+        </div>
       )}
 
       <Button
@@ -85,7 +90,7 @@ export const JoinWorkspaceForm = ({
         className="w-full"
         variant="outline"
       >
-        {loading ? "Joining..." : "Join Space"}
+        {loading ? "Joining..." : "Join Workspace"}
       </Button>
     </form>
   );

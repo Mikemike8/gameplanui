@@ -1,7 +1,9 @@
 // src/lib/workspaces.ts
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+
+/* ----------------------------- Types ----------------------------- */
 
 export interface BackendUser {
   id: string;
@@ -14,61 +16,71 @@ export interface WorkspaceSummary {
   id: string;
   name: string;
   description?: string | null;
-  is_personal?: boolean;
-  role?: string;
+  role: string;
+  is_personal: boolean;
 }
 
-export interface WorkspaceDetails {
+export interface WorkspaceDetail {
   id: string;
   name: string;
   description?: string | null;
-  is_personal?: boolean;
   owner_id: string;
+  is_personal: boolean;
+  invite_code?: string | null;
 }
 
-/**
- * Get or create the backend user from Auth0 session.user
- */
+export interface Auth0User {
+  email?: string;
+  name?: string;
+  nickname?: string;
+  picture?: string;
+  [key: string]: unknown;
+}
+
+export interface CreateWorkspaceBody {
+  name: string;
+  description?: string;
+  is_personal?: boolean;
+}
+
+export interface CreateWorkspaceResponse {
+  workspace_id: string;
+  invite_code?: string;
+}
+
+export interface JoinWorkspaceResponse {
+  workspace_id: string;
+  role: string;
+}
+
+/* ------------------------- API FUNCTIONS ------------------------- */
+
 export async function getOrCreateBackendUser(
-  sessionUser: any
+  auth0User: Auth0User
 ): Promise<BackendUser> {
-  const email: string = sessionUser.email || "";
-  const name: string =
-    sessionUser.name ||
-    sessionUser.nickname ||
-    email.split("@")[0] ||
-    "User";
-
-  const avatar: string =
-    sessionUser.picture ||
-    `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(
-      email || name
-    )}`;
-
-  // ✅ DEBUG LOGS (correct place)
-  console.log("🔍 Sending request to:", `${API_URL}/users/me`);
-  console.log("📨 Payload:", { name, email, avatar });
+  if (!auth0User.email) {
+    throw new Error("Auth0 user is missing email");
+  }
 
   const res = await fetch(`${API_URL}/users/me`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, avatar }),
+    cache: "no-store",
+    body: JSON.stringify({
+      name: auth0User.name || auth0User.nickname || auth0User.email,
+      email: auth0User.email,
+      avatar: auth0User.picture,
+    }),
   });
 
   if (!res.ok) {
-    console.log("❌ Backend responded with status:", res.status);
-    const text = await res.text();
-    console.log("❌ Backend error response:", text);
     throw new Error("Failed to sync user with backend");
   }
 
-  return (await res.json()) as BackendUser;
+  return res.json() as Promise<BackendUser>;
 }
 
-/**
- * Get all workspaces for a backend user
- */
-export async function getMyWorkspaces(
+export async function fetchMyWorkspaces(
   userId: string
 ): Promise<WorkspaceSummary[]> {
   const res = await fetch(
@@ -80,15 +92,37 @@ export async function getMyWorkspaces(
     throw new Error("Failed to load workspaces");
   }
 
-  return (await res.json()) as WorkspaceSummary[];
+  return res.json() as Promise<WorkspaceSummary[]>;
 }
 
-/**
- * Get details of a single workspace
- */
+export async function joinWorkspaceServer(userId: string, inviteCode: string) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const res = await fetch(`${API_URL}/workspaces/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: userId,
+      invite_code: inviteCode,
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.message || "Failed to join workspace");
+  }
+
+  return res.json(); // → { workspace_id }
+}
+
+
 export async function getWorkspace(
   workspaceId: string
-): Promise<WorkspaceDetails> {
+): Promise<WorkspaceDetail> {
+  if (!workspaceId || workspaceId === "undefined") {
+    throw new Error("Invalid workspace ID");
+  }
+
   const res = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
     cache: "no-store",
   });
@@ -97,55 +131,25 @@ export async function getWorkspace(
     throw new Error("Workspace not found");
   }
 
-  return (await res.json()) as WorkspaceDetails;
+  return res.json() as Promise<WorkspaceDetail>;
 }
 
-/**
- * Create a workspace (server-side)
- */
-export async function createWorkspaceServer(
+export async function createWorkspace(
   userId: string,
-  data: { name: string; description?: string; is_personal?: boolean }
-): Promise<{ workspace_id: string }> {
-  const res = await fetch(
-    `${API_URL}/workspaces/create?user_id=${encodeURIComponent(userId)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: data.name,
-        description: data.description ?? "",
-        is_personal: data.is_personal ?? false,
-      }),
-    }
-  );
+  body: CreateWorkspaceBody
+): Promise<CreateWorkspaceResponse> {
+  const params = new URLSearchParams({ user_id: userId });
+
+  const res = await fetch(`${API_URL}/workspaces/create?${params.toString()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify(body),
+  });
 
   if (!res.ok) {
     throw new Error("Failed to create workspace");
   }
 
-  return (await res.json()) as { workspace_id: string };
-}
-
-/**
- * Join workspace using invite code (server-side)
- */
-export async function joinWorkspaceServer(
-  userId: string,
-  inviteCode: string
-): Promise<{ workspace_id: string }> {
-  const res = await fetch(`${API_URL}/workspaces/join`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      invite_code: inviteCode,
-      user_id: userId,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to join workspace");
-  }
-
-  return (await res.json()) as { workspace_id: string };
+  return res.json() as Promise<CreateWorkspaceResponse>;
 }
