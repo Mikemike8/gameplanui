@@ -17,10 +17,7 @@ export default async function JoinByInvitePage({ params }: JoinByInvitePageProps
   const backendUser = await getOrCreateBackendUser(session.user);
 
   try {
-    const { workspace_id } = await joinWorkspaceServer(
-      backendUser.id,
-      params.inviteCode
-    );
+    const { workspace_id } = await joinWorkspaceServer(backendUser.id, params.inviteCode);
 
     redirect(`/protected/workspace/${workspace_id}`);
   } catch {

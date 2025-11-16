@@ -10,9 +10,7 @@ export const TopBar = () => {
         {/* Greeting */}
         <div>
           <span className="text-sm font-bold block">🚀 Good morning, Tom!</span>
-          <span className="text-xs text-stone-500 block mt-0.5">
-            Tuesday, Aug 8th 2023
-          </span>
+          <span className="text-xs text-stone-500 block mt-0.5">Tuesday, Aug 8th 2023</span>
         </div>
 
         {/* Button */}

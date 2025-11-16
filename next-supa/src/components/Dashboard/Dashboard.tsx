@@ -10,9 +10,7 @@ export const Dashboard = () => {
         <Grid />
       </div>
       <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t">
-        <p className="text-xs text-stone-500">
-          Last updated: August 8th, 2023 at 10:00 AM
-        </p>
+        <p className="text-xs text-stone-500">Last updated: August 8th, 2023 at 10:00 AM</p>
       </div>
     </div>
   );

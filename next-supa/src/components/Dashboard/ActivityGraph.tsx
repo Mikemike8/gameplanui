@@ -80,27 +80,10 @@ export const ActivityGraph = () => {
               className="text-xs font-bold"
               padding={{ right: 4 }}
             />
-            <YAxis
-              className="text-xs font-bold"
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              wrapperClassName="text-sm rounded"
-              labelClassName="text-xs text-stone-500"
-            />
-            <Line
-              type="monotone"
-              dataKey="New"
-              stroke="#18181b"
-              fill="#18181b"
-            />
-            <Line
-              type="monotone"
-              dataKey="Returning"
-              stroke="#5b21b6"
-              fill="#5b21b6"
-            />
+            <YAxis className="text-xs font-bold" axisLine={false} tickLine={false} />
+            <Tooltip wrapperClassName="text-sm rounded" labelClassName="text-xs text-stone-500" />
+            <Line type="monotone" dataKey="New" stroke="#18181b" fill="#18181b" />
+            <Line type="monotone" dataKey="Returning" stroke="#5b21b6" fill="#5b21b6" />
           </LineChart>
         </ResponsiveContainer>
       </div>

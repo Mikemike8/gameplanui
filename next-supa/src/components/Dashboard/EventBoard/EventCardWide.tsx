@@ -23,8 +23,7 @@ export const EventCardWide = ({ className }: EventCardWideProps) => {
             Tech Innovators Summit 2025
           </h2>
           <p className="text-sm text-stone-500 max-w-full sm:max-w-md line-clamp-3">
-            Join 300+ professionals exploring the future of technology, AI, and
-            design thinking.
+            Join 300+ professionals exploring the future of technology, AI, and design thinking.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 text-sm text-stone-600 flex-wrap">

@@ -2,11 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
-import {
-  getOrCreateBackendUser,
-  fetchMyWorkspaces,
-  type Auth0User,
-} from "@/lib/workspaces";
+import { getOrCreateBackendUser, fetchMyWorkspaces, type Auth0User } from "@/lib/workspaces";
 
 export default async function ProtectedIndexPage() {
   const session = await auth0.getSession();
@@ -19,6 +15,6 @@ export default async function ProtectedIndexPage() {
     redirect("/protected/spaces"); // prompt to create/join
   }
 
-  const defaultWorkspace = workspaces.find(w => w.is_personal) ?? workspaces[0];
+  const defaultWorkspace = workspaces.find((w) => w.is_personal) ?? workspaces[0];
   redirect(`/protected/workspace/${defaultWorkspace.id}`);
 }

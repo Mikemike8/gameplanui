@@ -16,6 +16,9 @@ import {
   ChevronDown,
   LogOut,
   Building2,
+  FileText,
+  CalendarDays,
+  MessageSquare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -35,6 +38,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { v4 as uuidv4 } from "uuid";
 import { io, Socket } from "socket.io-client";
 import { useUser as useAuth0 } from "@auth0/nextjs-auth0/client";
+import { FilePanel } from "@/components/Workspace/FilePanel";
+import { CalendarPanel } from "@/components/Workspace/CalendarPanel";
+import { cn } from "@/lib/utils";
 
 /* Types */
 interface ApiUser {
@@ -97,9 +103,7 @@ interface TeamChannelInterfaceProps {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-export default function TeamChannelInterface({
-  initialWorkspaceId,
-}: TeamChannelInterfaceProps) {
+export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannelInterfaceProps) {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const router = useRouter();
 
@@ -123,12 +127,25 @@ export default function TeamChannelInterface({
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
+  const [mainView, setMainView] = useState<"chat" | "files" | "calendar">("chat");
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine
+  );
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const emojis = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "💯"];
   const pinnedMessages = messages.filter((m) => m.isPinned);
+  const toggleMainView = (view: "files" | "calendar") => {
+    setMainView((current) => (current === view ? "chat" : view));
+    setShowPinnedMessages(false);
+  };
+  const mainAreaButtonClass = (isActive: boolean) =>
+    cn(
+      "p-2 rounded transition-colors",
+      isActive ? "bg-primary/10 text-primary" : "hover:bg-accent"
+    );
 
   const formatTime = (d: Date) =>
     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -156,10 +173,9 @@ export default function TeamChannelInterface({
     if (!currentUser) return;
 
     const loadWorkspaces = async () => {
-      const res = await fetch(
-        `${API_URL}/workspaces/my?user_id=${currentUser.id}`,
-        { cache: "no-store" }
-      );
+      const res = await fetch(`${API_URL}/workspaces/my?user_id=${currentUser.id}`, {
+        cache: "no-store",
+      });
 
       const workspaces: WorkspaceSummary[] = await res.json();
       setAllWorkspaces(workspaces);
@@ -215,10 +231,9 @@ export default function TeamChannelInterface({
   const loadChannels = useCallback(async () => {
     if (!workspaceId) return;
 
-    const res = await fetch(
-      `${API_URL}/channels?workspace_id=${workspaceId}`,
-      { cache: "no-store" }
-    );
+    const res = await fetch(`${API_URL}/channels?workspace_id=${workspaceId}`, {
+      cache: "no-store",
+    });
 
     const data: ApiChannel[] = await res.json();
 
@@ -248,10 +263,9 @@ export default function TeamChannelInterface({
   const loadMessages = useCallback(async () => {
     if (!currentChannel) return;
 
-    const res = await fetch(
-      `${API_URL}/messages?channel_id=${currentChannel.id}`,
-      { cache: "no-store" }
-    );
+    const res = await fetch(`${API_URL}/messages?channel_id=${currentChannel.id}`, {
+      cache: "no-store",
+    });
 
     const data: ApiMessage[] = await res.json();
 
@@ -299,15 +313,18 @@ export default function TeamChannelInterface({
       });
     });
 
-    socket.on("message-pinned", (data: { message_id: string; is_pinned: boolean; pinned_by?: string }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === data.message_id
-            ? { ...m, isPinned: data.is_pinned, pinnedBy: data.pinned_by }
-            : m
-        )
-      );
-    });
+    socket.on(
+      "message-pinned",
+      (data: { message_id: string; is_pinned: boolean; pinned_by?: string }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === data.message_id
+              ? { ...m, isPinned: data.is_pinned, pinnedBy: data.pinned_by }
+              : m
+          )
+        );
+      }
+    );
 
     socket.on("reaction-added", () => {
       loadMessages();
@@ -471,17 +488,35 @@ export default function TeamChannelInterface({
   }, [currentChannel, loadMessages]);
 
   useEffect(() => {
+    setMainView("chat");
+    setShowPinnedMessages(false);
+  }, [currentChannel?.id]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    setCurrentUser((prev) =>
+      prev ? { ...prev, status: isOnline ? "online" : "offline" } : prev
+    );
+  }, [isOnline]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   /* Loading Screen */
-  if (
-    auth0Loading ||
-    !auth0User ||
-    !currentUser ||
-    !workspaceId ||
-    !currentChannel
-  ) {
+  if (auth0Loading || !auth0User || !currentUser || !workspaceId || !currentChannel) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
@@ -531,43 +566,29 @@ export default function TeamChannelInterface({
                 >
                   <Building2 className="w-4 h-4 shrink-0" />
                   <span className="truncate">{ws.name}</span>
-                  {ws.is_personal && (
-                    <span className="text-xs text-muted-foreground">(You)</span>
-                  )}
+                  {ws.is_personal && <span className="text-xs text-muted-foreground">(You)</span>}
                 </button>
               ))}
               <div className="border-t border-border my-2" />
               <button
                 onClick={() => {
-                  router.push("/protected/onboarding");
-                  setShowWorkspaceSwitcher(false);
-                }}
-                className="w-full text-left px-2 py-2 rounded hover:bg-accent flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Create or Join Workspace
-              </button>
-              <button
-                onClick={() => {
-                  window.location.href = "/auth/logout";
-                }}
-                className="w-full text-left px-2 py-2 rounded hover:bg-destructive/10 text-destructive flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
-            </div>
-          </div>
-        )}
+              router.push("/protected/onboarding");
+              setShowWorkspaceSwitcher(false);
+            }}
+            className="w-full text-left px-2 py-2 rounded hover:bg-accent flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create or Join Workspace
+          </button>
+        </div>
+      </div>
+    )}
 
         {/* Channels List */}
         <div className="flex-1 overflow-y-auto p-2">
           <div className="flex items-center justify-between px-2 py-1 mb-1">
             <span className="text-sm font-semibold">Channels</span>
-            <Dialog
-              open={isCreateChannelOpen}
-              onOpenChange={setIsCreateChannelOpen}
-            >
+            <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
               <DialogTrigger asChild>
                 <button className="p-1 hover:bg-sidebar-accent rounded">
                   <Plus className="w-4 h-4" />
@@ -576,9 +597,7 @@ export default function TeamChannelInterface({
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Create a channel</DialogTitle>
-                  <DialogDescription>
-                    Channels are where your team communicates.
-                  </DialogDescription>
+                  <DialogDescription>Channels are where your team communicates.</DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
@@ -593,9 +612,7 @@ export default function TeamChannelInterface({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="channel-description">
-                      Description (optional)
-                    </Label>
+                    <Label htmlFor="channel-description">Description (optional)</Label>
                     <Input
                       id="channel-description"
                       value={newChannelDescription}
@@ -615,10 +632,7 @@ export default function TeamChannelInterface({
                 </div>
 
                 <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsCreateChannelOpen(false)}
-                  >
+                  <Button variant="outline" onClick={() => setIsCreateChannelOpen(false)}>
                     Cancel
                   </Button>
                   <Button onClick={handleCreateChannel}>Create</Button>
@@ -644,7 +658,7 @@ export default function TeamChannelInterface({
         </div>
 
         {/* User Profile Footer */}
-        <div className="h-12 px-2 flex items-center border-t border-sidebar-border shrink-0">
+        <div className="h-12 px-2 flex items-center border-t border-sidebar-border shrink-0 gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <img
               src={currentUser.avatar}
@@ -652,15 +666,28 @@ export default function TeamChannelInterface({
               className="w-8 h-8 rounded shrink-0"
             />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate">
-                {currentUser.name}
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-green-500 rounded-full" />
-                <span className="text-xs">Active</span>
+              <div className="text-sm font-semibold truncate">{currentUser.name}</div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div
+                  className={cn(
+                    "w-2 h-2 rounded-full",
+                    isOnline ? "bg-green-500" : "bg-gray-400"
+                  )}
+                />
+                <span>{isOnline ? "Active" : "Offline"}</span>
               </div>
             </div>
           </div>
+
+          <button
+            onClick={() => {
+              window.location.href = "/auth/logout";
+            }}
+            className="p-2 hover:bg-sidebar-accent rounded text-muted-foreground hover:text-destructive"
+            title="Sign out"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -689,6 +716,15 @@ export default function TeamChannelInterface({
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setMainView("chat")}
+              className={mainAreaButtonClass(mainView === "chat")}
+              aria-pressed={mainView === "chat"}
+              title="Messages"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
+
+            <button
               onClick={() => setShowPinnedMessages(!showPinnedMessages)}
               className="relative p-2 hover:bg-accent rounded"
             >
@@ -700,6 +736,24 @@ export default function TeamChannelInterface({
               )}
             </button>
 
+            <button
+              onClick={() => toggleMainView("files")}
+              className={cn(mainAreaButtonClass(mainView === "files"), "hidden sm:block")}
+              aria-pressed={mainView === "files"}
+              title="Files"
+            >
+              <FileText className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => toggleMainView("calendar")}
+              className={cn(mainAreaButtonClass(mainView === "calendar"), "hidden sm:block")}
+              aria-pressed={mainView === "calendar"}
+              title="Calendar"
+            >
+              <CalendarDays className="w-5 h-5" />
+            </button>
+
             <button className="p-2 hover:bg-accent rounded hidden sm:block">
               <Search className="w-5 h-5" />
             </button>
@@ -708,166 +762,159 @@ export default function TeamChannelInterface({
               <Users className="w-5 h-5" />
             </button>
 
-            {/* Settings Button → Redirect to workspace settings */}
-<button
-  onClick={() =>
-    router.push(`/protected/workspace/${workspaceId}/settings`)
-  }
-  className="p-2 hover:bg-accent rounded"
->
-  <Settings className="w-5 h-5" />
-</button>
-
+            <button
+              onClick={() => router.push(`/protected/workspace/${workspaceId}/settings`)}
+              className="p-2 hover:bg-accent rounded"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Pinned Messages */}
-        {showPinnedMessages && pinnedMessages.length > 0 && (
-          <div className="bg-primary/5 border-b border-border p-3 text-sm space-y-2">
-            <div className="font-semibold flex items-center gap-2">
-              <Pin className="w-4 h-4" />
-              Pinned Messages
-            </div>
-            {pinnedMessages.map((m) => (
-              <div key={m.id} className="pl-6">
-                <strong>{m.user.name}:</strong> {m.content}
+        {mainView === "chat" ? (
+          <>
+            {showPinnedMessages && pinnedMessages.length > 0 && (
+              <div className="bg-primary/5 border-b border-border p-3 text-sm space-y-2">
+                <div className="font-semibold flex items-center gap-2">
+                  <Pin className="w-4 h-4" />
+                  Pinned Messages
+                </div>
+                {pinnedMessages.map((m) => (
+                  <div key={m.id} className="pl-6">
+                    <strong>{m.user.name}:</strong> {m.content}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((message) => (
+                <div key={message.id} className="flex gap-3 group relative">
+                  <img
+                    src={message.user.avatar}
+                    alt={message.user.name}
+                    className="w-10 h-10 rounded shrink-0"
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-semibold">{message.user.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatTime(message.timestamp)}
+                      </span>
+                      {message.isPinned && (
+                        <span className="text-xs text-primary flex items-center gap-1">
+                          <Pin className="w-3 h-3" />
+                          Pinned
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-1 whitespace-pre-wrap break-words">{message.content}</div>
+
+                    {message.reactions.length > 0 && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {message.reactions.map((r, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => addReaction(message.id, r.emoji)}
+                            className={`px-2 py-1 rounded-full border text-xs flex items-center gap-1 transition-colors ${
+                              r.users.includes(currentUser.id)
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-secondary hover:bg-accent"
+                            }`}
+                          >
+                            {r.emoji} {r.count}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 bg-card border border-border rounded shadow-sm">
+                    <button
+                      onClick={() =>
+                        setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id)
+                      }
+                      className="p-1.5 hover:bg-accent rounded"
+                    >
+                      <Smile className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      onClick={() => togglePinMessage(message.id)}
+                      className="p-1.5 hover:bg-accent rounded"
+                    >
+                      {message.isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {showEmojiPicker === message.id && (
+                    <div className="absolute bg-card border border-border p-2 rounded-lg shadow-lg flex gap-1 flex-wrap w-40 top-8 right-0 z-10">
+                      {emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => addReaction(message.id, emoji)}
+                          className="p-1 hover:bg-accent rounded text-lg"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="p-4 border-t border-border bg-card shrink-0">
+              <div className="border border-border rounded-lg overflow-hidden focus-within:border-ring transition-colors">
+                <textarea
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={`Message #${currentChannel.name}`}
+                  className="w-full bg-transparent resize-none outline-none p-3 min-h-[60px] max-h-[200px]"
+                  rows={1}
+                />
+
+                <div className="flex justify-between items-center px-3 pb-3">
+                  <div className="flex gap-1">
+                    <button className="p-1.5 hover:bg-accent rounded">
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+
+                    <button
+                      className="p-1.5 hover:bg-accent rounded"
+                      onClick={() =>
+                        setShowEmojiPicker(showEmojiPicker === "composer" ? null : "composer")
+                      }
+                    >
+                      <Smile className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <Button
+                    disabled={!currentMessage.trim()}
+                    onClick={handleSendMessage}
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0">
+            {mainView === "files" ? (
+              <FilePanel variant="embedded" />
+            ) : (
+              <CalendarPanel variant="embedded" />
+            )}
           </div>
         )}
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className="flex gap-3 group relative">
-              <img
-                src={message.user.avatar}
-                alt={message.user.name}
-                className="w-10 h-10 rounded shrink-0"
-              />
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-semibold">{message.user.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatTime(message.timestamp)}
-                  </span>
-                  {message.isPinned && (
-                    <span className="text-xs text-primary flex items-center gap-1">
-                      <Pin className="w-3 h-3" />
-                      Pinned
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-1 whitespace-pre-wrap break-words">
-                  {message.content}
-                </div>
-
-                {message.reactions.length > 0 && (
-                  <div className="flex gap-1 mt-2 flex-wrap">
-                    {message.reactions.map((r, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => addReaction(message.id, r.emoji)}
-                        className={`px-2 py-1 rounded-full border text-xs flex items-center gap-1 transition-colors ${
-                          r.users.includes(currentUser.id)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-secondary hover:bg-accent"
-                        }`}
-                      >
-                        {r.emoji} {r.count}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Hover Actions */}
-              <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 bg-card border border-border rounded shadow-sm">
-                <button
-                  onClick={() =>
-                    setShowEmojiPicker(
-                      showEmojiPicker === message.id ? null : message.id
-                    )
-                  }
-                  className="p-1.5 hover:bg-accent rounded"
-                >
-                  <Smile className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => togglePinMessage(message.id)}
-                  className="p-1.5 hover:bg-accent rounded"
-                >
-                  {message.isPinned ? (
-                    <PinOff className="w-4 h-4" />
-                  ) : (
-                    <Pin className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-
-              {/* Emoji Picker */}
-              {showEmojiPicker === message.id && (
-                <div className="absolute bg-card border border-border p-2 rounded-lg shadow-lg flex gap-1 flex-wrap w-40 top-8 right-0 z-10">
-                  {emojis.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => addReaction(message.id, emoji)}
-                      className="p-1 hover:bg-accent rounded text-lg"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Message Composer */}
-        <div className="p-4 border-t border-border bg-card shrink-0">
-          <div className="border border-border rounded-lg overflow-hidden focus-within:border-ring transition-colors">
-            <textarea
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={`Message #${currentChannel.name}`}
-              className="w-full bg-transparent resize-none outline-none p-3 min-h-[60px] max-h-[200px]"
-              rows={1}
-            />
-
-            <div className="flex justify-between items-center px-3 pb-3">
-              <div className="flex gap-1">
-                <button className="p-1.5 hover:bg-accent rounded">
-                  <Paperclip className="w-5 h-5" />
-                </button>
-
-                <button
-                  className="p-1.5 hover:bg-accent rounded"
-                  onClick={() =>
-                    setShowEmojiPicker(
-                      showEmojiPicker === "composer" ? null : "composer"
-                    )
-                  }
-                >
-                  <Smile className="w-5 h-5" />
-                </button>
-              </div>
-
-              <Button
-                disabled={!currentMessage.trim()}
-                onClick={handleSendMessage}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

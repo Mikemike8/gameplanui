@@ -24,9 +24,7 @@ export const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
         <h3 className="flex items-center gap-1.5 font-medium">
           <FiCalendar /> Upcoming Events
         </h3>
-        <button className="text-sm text-violet-500 hover:underline">
-          See all
-        </button>
+        <button className="text-sm text-violet-500 hover:underline">See all</button>
       </div>
 
       {/* Table */}
@@ -43,10 +41,7 @@ export const UpcomingEvents = ({ events }: UpcomingEventsProps) => {
           </thead>
           <tbody>
             {events.map((event, index) => (
-              <tr
-                key={event.id}
-                className={index % 2 ? "bg-stone-100 text-sm" : "text-sm"}
-              >
+              <tr key={event.id} className={index % 2 ? "bg-stone-100 text-sm" : "text-sm"}>
                 <td className="p-1.5">
                   <span className="text-violet-600 underline flex items-center gap-1">
                     {event.id}

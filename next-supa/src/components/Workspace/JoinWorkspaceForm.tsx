@@ -15,10 +15,7 @@ interface JoinWorkspaceFormProps {
   className?: string;
 }
 
-export const JoinWorkspaceForm = ({
-  userId,
-  className,
-}: JoinWorkspaceFormProps) => {
+export const JoinWorkspaceForm = ({ userId, className }: JoinWorkspaceFormProps) => {
   const router = useRouter();
   const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,8 +51,7 @@ export const JoinWorkspaceForm = ({
       const data = await res.json();
       router.push(`/protected/workspace/${data.workspace_id}`);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to join workspace.";
+      const message = err instanceof Error ? err.message : "Failed to join workspace.";
       setError(message);
     } finally {
       setLoading(false);

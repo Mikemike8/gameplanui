@@ -3,7 +3,6 @@
 import { Command } from "cmdk";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { FiEye, FiLink, FiLogOut, FiPhone, FiPlus } from "react-icons/fi";
-import { useRouter } from "next/navigation";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 export const CommandMenu = ({
@@ -14,7 +13,6 @@ export const CommandMenu = ({
   setOpen: Dispatch<SetStateAction<boolean>>;
 }) => {
   const [value, setValue] = useState("");
-  const router = useRouter();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -26,7 +24,7 @@ export const CommandMenu = ({
 
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
-  }, []);
+  }, [setOpen]);
 
   const logout = () => {
     // Auth0 logout endpoint
@@ -58,7 +56,7 @@ export const CommandMenu = ({
           />
           <Command.List className="p-3">
             <Command.Empty>
-              No results found for <span className="text-violet-500">"{value}"</span>
+              No results found for <span className="text-violet-500">&ldquo;{value}&rdquo;</span>
             </Command.Empty>
 
             <Command.Group heading="Team" className="text-sm mb-3 text-stone-400">

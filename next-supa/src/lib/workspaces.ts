@@ -1,7 +1,6 @@
 // src/lib/workspaces.ts
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -55,9 +54,7 @@ export interface JoinWorkspaceResponse {
 
 /* ------------------------- API FUNCTIONS ------------------------- */
 
-export async function getOrCreateBackendUser(
-  auth0User: Auth0User
-): Promise<BackendUser> {
+export async function getOrCreateBackendUser(auth0User: Auth0User): Promise<BackendUser> {
   if (!auth0User.email) {
     throw new Error("Auth0 user is missing email");
   }
@@ -80,19 +77,23 @@ export async function getOrCreateBackendUser(
   return res.json() as Promise<BackendUser>;
 }
 
-export async function fetchMyWorkspaces(
-  userId: string
-): Promise<WorkspaceSummary[]> {
-  const res = await fetch(
-    `${API_URL}/workspaces/my?user_id=${encodeURIComponent(userId)}`,
-    { cache: "no-store" }
-  );
+export async function fetchMyWorkspaces(userId: string): Promise<WorkspaceSummary[]> {
+  const res = await fetch(`${API_URL}/workspaces/my?user_id=${encodeURIComponent(userId)}`, {
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     throw new Error("Failed to load workspaces");
   }
 
-  return res.json() as Promise<WorkspaceSummary[]>;
+  const data = (await res.json()) as Array<
+    Omit<WorkspaceSummary, "id"> & { id: string | number | undefined }
+  >;
+
+  return data.map((workspace) => ({
+    ...workspace,
+    id: String(workspace.id ?? ""),
+  }));
 }
 
 export async function joinWorkspaceServer(userId: string, inviteCode: string) {
@@ -115,10 +116,7 @@ export async function joinWorkspaceServer(userId: string, inviteCode: string) {
   return res.json(); // → { workspace_id }
 }
 
-
-export async function getWorkspace(
-  workspaceId: string
-): Promise<WorkspaceDetail> {
+export async function getWorkspace(workspaceId: string): Promise<WorkspaceDetail> {
   if (!workspaceId || workspaceId === "undefined") {
     throw new Error("Invalid workspace ID");
   }

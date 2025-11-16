@@ -10,27 +10,6 @@ export default function PostPerson() {
   const [email, setEmail] = useState(""); // Stores the email input from the user
   const [status, setStatus] = useState(""); // Optional: stores feedback message (success/error)
 
-  const [messages, setMessages] = useState([]); // Stores messages fetched from the backend
-
-
-  const handleFetchMessages = async (event: FormEvent) => {
-    event.preventDefault();
-    try {
-      const response = await fetch("http://127.0.0.1:8000/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: messages }),
-      });
-
-      if (!response.ok) throw new Error("Failed to fetch messages");
-
-      const data = await response.json();
-      setMessages(data);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   // --------------------------
   // Function to handle form submission
   // --------------------------

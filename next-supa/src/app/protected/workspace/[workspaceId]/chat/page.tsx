@@ -1,11 +1,7 @@
 // src/app/protected/workspace/[workspaceId]/chat/page.tsx
 import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
-import {
-  getOrCreateBackendUser,
-  fetchMyWorkspaces,
-  type Auth0User,
-} from "@/lib/workspaces";
+import { getOrCreateBackendUser, fetchMyWorkspaces, type Auth0User } from "@/lib/workspaces";
 import TeamChannelInterface from "@/components/Dashboard/TeamChannelInterface";
 
 interface ChatPageProps {

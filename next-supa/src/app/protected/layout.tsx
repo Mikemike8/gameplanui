@@ -5,11 +5,7 @@ import { auth0 } from "@/lib/auth0";
 import { getOrCreateBackendUser, type Auth0User } from "@/lib/workspaces";
 import { UserProvider } from "@/context/UserContext";
 
-export default async function ProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth0.getSession();
 
   if (!session?.user) {
@@ -26,16 +22,11 @@ export default async function ProtectedLayout({
     <UserProvider>
       <script
         dangerouslySetInnerHTML={{
-          __html: `localStorage.setItem("backendUser", '${serializedUser.replace(
-            /'/g,
-            "\\'"
-          )}');`,
+          __html: `localStorage.setItem("backendUser", '${serializedUser.replace(/'/g, "\\'")}');`,
         }}
       />
       {/* No navbar - chat interface is full-screen */}
-      <main className="h-screen overflow-hidden bg-background">
-        {children}
-      </main>
+      <main className="h-screen overflow-hidden bg-background">{children}</main>
     </UserProvider>
   );
 }

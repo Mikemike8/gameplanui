@@ -49,9 +49,7 @@ const EventCard = ({
         <h3 className="text-lg font-semibold truncate">{title}</h3>
         <span
           className={`text-xs px-2 py-1 rounded font-medium whitespace-nowrap ${
-            status === "Upcoming"
-              ? "bg-green-100 text-green-700"
-              : "bg-stone-200 text-stone-700"
+            status === "Upcoming" ? "bg-green-100 text-green-700" : "bg-stone-200 text-stone-700"
           }`}
         >
           {status}

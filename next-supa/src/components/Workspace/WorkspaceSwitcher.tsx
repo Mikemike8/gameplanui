@@ -16,10 +16,7 @@ interface WorkspaceSwitcherProps {
   currentWorkspaceId?: string;
 }
 
-export const WorkspaceSwitcher = ({
-  workspaces,
-  currentWorkspaceId,
-}: WorkspaceSwitcherProps) => {
+export const WorkspaceSwitcher = ({ workspaces, currentWorkspaceId }: WorkspaceSwitcherProps) => {
   const router = useRouter();
   const [selected, setSelected] = useState<string>("");
 

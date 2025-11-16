@@ -75,10 +75,7 @@ export const UsageRadar = () => {
               fill="#5b21b6"
               fillOpacity={0.2}
             />
-            <Tooltip
-              wrapperClassName="text-sm rounded"
-              labelClassName="text-xs text-stone-500"
-            />
+            <Tooltip wrapperClassName="text-sm rounded" labelClassName="text-xs text-stone-500" />
             <Legend />
           </RadarChart>
         </ResponsiveContainer>

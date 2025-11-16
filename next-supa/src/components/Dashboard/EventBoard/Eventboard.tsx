@@ -18,9 +18,7 @@ export const Eventboard = ({ className }: EventboardProps) => {
   ]);
 
   return (
-    <div
-      className={`grid bg-white grid-cols-12 gap-4 overflow-y-auto ${className}`}
-    >
+    <div className={`grid bg-white grid-cols-12 gap-4 overflow-y-auto ${className}`}>
       {/* Top Bar */}
       <div className="col-span-12">
         <TopBar />
@@ -42,9 +40,7 @@ export const Eventboard = ({ className }: EventboardProps) => {
 
       {/* Footer / Last Updated */}
       <div className="col-span-12 p-4 border-t">
-        <p className="text-xs text-stone-500">
-          Last updated: August 8th, 2023 at 10:00 AM
-        </p>
+        <p className="text-xs text-stone-500">Last updated: August 8th, 2023 at 10:00 AM</p>
       </div>
     </div>
   );

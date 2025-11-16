@@ -1,14 +1,22 @@
 // app/page.tsx (or wherever your Home component is)
-import { auth0 } from '@/lib/auth0';  // Updated import to use the new client
-import { redirect } from 'next/navigation';
-import { Button } from '@/components/ui/button';  // Assuming shadcn/ui is installed
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { auth0 } from "@/lib/auth0"; // Updated import to use the new client
+import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button"; // Assuming shadcn/ui is installed
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default async function Home() {
-  const session = await auth0.getSession();  // Updated to use auth0.getSession()
+  const session = await auth0.getSession(); // Updated to use auth0.getSession()
 
-  if (session?.user) {  // Check for session.user to confirm authenticated
-    redirect('/protected');
+  if (session?.user) {
+    // Check for session.user to confirm authenticated
+    redirect("/protected");
   }
 
   return (

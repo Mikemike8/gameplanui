@@ -3,7 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
-html, body {
+html,
+body {
   padding: 0;
   margin: 0;
   height: 100%;
@@ -18,12 +19,12 @@ html, body {
   --color-slack-active: #1264a3;
   --color-slack-hover: rgba(29, 28, 29, 0.04);
   --color-slack-hover-dark: rgba(248, 248, 248, 0.08);
-  
+
   /* Chat colors */
   --color-chat-hover: var(--slack-hover);
   --color-chat-active: #1264a3;
   --color-chat-active-text: #ffffff;
-  
+
   /* Base theme colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);

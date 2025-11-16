@@ -15,10 +15,7 @@ interface CreateWorkspaceFormProps {
   className?: string;
 }
 
-export function CreateWorkspaceForm({
-  userId,
-  className,
-}: CreateWorkspaceFormProps) {
+export function CreateWorkspaceForm({ userId, className }: CreateWorkspaceFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -48,8 +45,7 @@ export function CreateWorkspaceForm({
 
       router.push(`/protected/workspace/${res.workspace_id}`);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create workspace.";
+      const message = err instanceof Error ? err.message : "Failed to create workspace.";
       setError(message);
     } finally {
       setLoading(false);
@@ -89,11 +85,7 @@ export function CreateWorkspaceForm({
         </div>
       )}
 
-      <Button
-        type="submit"
-        disabled={loading || !name.trim()}
-        className="w-full"
-      >
+      <Button type="submit" disabled={loading || !name.trim()} className="w-full">
         {loading ? "Creating..." : "Create Workspace"}
       </Button>
     </form>

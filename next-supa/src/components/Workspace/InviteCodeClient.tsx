@@ -7,18 +7,9 @@ export default function InviteCodeClient({ inviteCode }: { inviteCode: string })
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <Input
-          id="invite-code"
-          value={inviteCode}
-          readOnly
-          className="font-mono bg-muted"
-        />
+        <Input id="invite-code" value={inviteCode} readOnly className="font-mono bg-muted" />
 
-        <Button
-          onClick={() => navigator.clipboard.writeText(inviteCode)}
-        >
-          Copy
-        </Button>
+        <Button onClick={() => navigator.clipboard.writeText(inviteCode)}>Copy</Button>
       </div>
     </div>
   );

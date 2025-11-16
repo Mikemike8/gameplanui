@@ -34,9 +34,7 @@ export const EventStatsCard = ({ className }: EventStatsCardProps) => {
             <FiCalendar className="text-stone-500" />
             <span>Next Event</span>
           </div>
-          <span className="font-semibold text-stone-800 text-right">
-            Oct 25, 2025
-          </span>
+          <span className="font-semibold text-stone-800 text-right">Oct 25, 2025</span>
         </div>
 
         {/* Event Duration */}
@@ -45,9 +43,7 @@ export const EventStatsCard = ({ className }: EventStatsCardProps) => {
             <FiClock className="text-stone-500" />
             <span>Duration</span>
           </div>
-          <span className="font-semibold text-stone-800 text-right">
-            10:00 AM – 5:00 PM
-          </span>
+          <span className="font-semibold text-stone-800 text-right">10:00 AM – 5:00 PM</span>
         </div>
       </div>
     </div>

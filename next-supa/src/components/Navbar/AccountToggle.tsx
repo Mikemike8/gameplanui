@@ -20,16 +20,11 @@ export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
   };
 
   // --- Avatar & Name ---
- const emaill = user?.email ?? "";
+  const emaill = user?.email ?? "";
 
-const avatar =
-  user?.picture ||
-  `https://api.dicebear.com/9.x/notionists/svg?seed=${emaill}`;
+  const avatar = user?.picture || `https://api.dicebear.com/9.x/notionists/svg?seed=${emaill}`;
 
-const displayName =
-  user?.name ||
-  user?.nickname ||
-  (email ? email.split("@")[0] : "Guest");
+  const displayName = user?.name || user?.nickname || (email ? email.split("@")[0] : "Guest");
 
   // --- Loading state ---
   if (isLoading) {
@@ -55,11 +50,7 @@ const displayName =
         <span className="hidden sm:block text-sm font-bold truncate max-w-[120px]">
           {displayName}
         </span>
-        {isOpen ? (
-          <FiChevronUp className="text-xs" />
-        ) : (
-          <FiChevronDown className="text-xs" />
-        )}
+        {isOpen ? <FiChevronUp className="text-xs" /> : <FiChevronDown className="text-xs" />}
       </button>
 
       {/* Dropdown */}
@@ -68,10 +59,7 @@ const displayName =
           <p className="cursor-pointer hover:text-violet-600 transition-colors py-1">
             Account Settings
           </p>
-          <p
-            onClick={logout}
-            className="cursor-pointer hover:text-red-500 transition-colors py-1"
-          >
+          <p onClick={logout} className="cursor-pointer hover:text-red-500 transition-colors py-1">
             Logout
           </p>
         </div>

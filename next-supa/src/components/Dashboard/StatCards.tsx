@@ -52,9 +52,7 @@ const Card = ({
 
         <span
           className={`text-xs flex items-center gap-1 font-medium px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${
-            trend === "up"
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-700"
+            trend === "up" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
           }`}
         >
           {trend === "up" ? <TrendingUp size={14} /> : <TrendingDown size={14} />} {pillText}

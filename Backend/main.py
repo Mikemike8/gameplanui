@@ -385,6 +385,7 @@ def get_or_create_user(request: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(member)
     db.commit()
+
     print("📥 /users/me body:", request.dict())
 
     return serialize_user(new_user)
@@ -404,24 +405,50 @@ def my_workspaces(user_id: str, db: Session = Depends(get_db)):
     { id, name, role, is_personal }
     (We can also return description/invite_code as extra data.)
     """
-    memberships = db.query(WorkspaceMember).filter(
-        WorkspaceMember.user_id == user_id
-    ).all()
+    memberships = (
+        db.query(WorkspaceMember).filter(WorkspaceMember.user_id == user_id).all()
+    )
 
-    result = []
-    for m in memberships:
-        ws = db.query(Workspace).filter(Workspace.id == m.workspace_id).first()
-        if ws:
-            result.append(
-                {
-                    "id": ws.id,
-                    "name": ws.name,
-                    "description": ws.description,
-                    "role": m.role,
-                    "is_personal": ws.is_personal,
-                    "invite_code": ws.invite_code,
-                }
-            )
+    result: List[Dict[str, Any]] = []
+    seen_workspace_ids = set()
+
+    for membership in memberships:
+        ws = db.query(Workspace).filter(Workspace.id == membership.workspace_id).first()
+        if not ws:
+            continue
+
+        seen_workspace_ids.add(ws.id)
+        result.append(
+            {
+                "id": ws.id,
+                "name": ws.name,
+                "description": ws.description,
+                "role": membership.role,
+                "is_personal": ws.is_personal,
+                "invite_code": ws.invite_code,
+            }
+        )
+
+    owned_workspaces = (
+        db.query(Workspace)
+        .filter(Workspace.owner_id == user_id)
+        .all()
+    )
+
+    for ws in owned_workspaces:
+        if ws.id in seen_workspace_ids:
+            continue
+
+        result.append(
+            {
+                "id": ws.id,
+                "name": ws.name,
+                "description": ws.description,
+                "role": "owner",
+                "is_personal": ws.is_personal,
+                "invite_code": ws.invite_code,
+            }
+        )
 
     return result
 

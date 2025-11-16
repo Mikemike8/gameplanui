@@ -31,9 +31,7 @@ export const WorkspaceList = ({ workspaces }: WorkspaceListProps) => {
                 )}
               </CardTitle>
               {ws.description && (
-                <CardDescription className="line-clamp-2 text-xs">
-                  {ws.description}
-                </CardDescription>
+                <CardDescription className="line-clamp-2 text-xs">{ws.description}</CardDescription>
               )}
               {ws.role && (
                 <p className="mt-1 text-[11px] uppercase tracking-wide text-stone-500">

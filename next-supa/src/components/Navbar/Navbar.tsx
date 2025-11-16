@@ -20,11 +20,7 @@ export const Navbar = () => {
 
       {user ? (
         <div className="flex items-center gap-2">
-          <img
-            src={user.avatar}
-            alt={user.name}
-            className="w-8 h-8 rounded-full"
-          />
+          <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
           <span className="text-sm">{user.name}</span>
         </div>
       ) : (

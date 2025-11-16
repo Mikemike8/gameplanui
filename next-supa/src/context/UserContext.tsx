@@ -28,9 +28,5 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  return (
-    <UserContext.Provider value={{ user, loading }}>
-      {children}
-    </UserContext.Provider>
-  );
+  return <UserContext.Provider value={{ user, loading }}>{children}</UserContext.Provider>;
 }
