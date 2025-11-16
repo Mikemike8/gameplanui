@@ -19,6 +19,10 @@ import {
   FileText,
   CalendarDays,
   MessageSquare,
+  Trash2,
+  Video,
+  X,
+  Loader2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -40,7 +44,9 @@ import { io, Socket } from "socket.io-client";
 import { useUser as useAuth0 } from "@auth0/nextjs-auth0/client";
 import { FilePanel } from "@/components/Workspace/FilePanel";
 import { CalendarPanel } from "@/components/Workspace/CalendarPanel";
+import { TeamSnapshotPanel } from "@/components/Workspace/TeamSnapshotPanel";
 import { cn } from "@/lib/utils";
+import { deleteWorkspace as deleteWorkspaceApi } from "@/lib/workspaces";
 
 /* Types */
 interface ApiUser {
@@ -86,6 +92,7 @@ interface Message {
   reactions: { emoji: string; count: number; users: string[] }[];
   isPinned: boolean;
   pinnedBy?: string;
+  attachment?: FileAttachment;
 }
 
 interface Channel {
@@ -101,7 +108,88 @@ interface TeamChannelInterfaceProps {
   initialWorkspaceId?: string;
 }
 
+interface FileAttachment {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  mime_type?: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const FILE_SHARE_PREFIX = "FILE_SHARE::";
+
+const formatBytes = (bytes: number) => {
+  if (!bytes) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+};
+
+const resolveAttachmentUrl = (url: string) => {
+  if (!url) return "#";
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/")) return `${API_URL}${url}`;
+  return `${API_URL}/${url}`;
+};
+
+const parseMessageContent = (raw: string): { text: string; attachment?: FileAttachment } => {
+  if (raw?.startsWith(FILE_SHARE_PREFIX)) {
+    try {
+      const payload = JSON.parse(raw.slice(FILE_SHARE_PREFIX.length));
+      const attachment = payload.attachment as FileAttachment | undefined;
+      const textFromPayload = typeof payload.text === "string" ? payload.text : "";
+      return {
+        text: textFromPayload || (attachment ? `Shared ${attachment.name}` : "Shared a document"),
+        attachment,
+      };
+    } catch (error) {
+      console.error("Failed to parse attachment payload", error);
+      return { text: "Shared a document" };
+    }
+  }
+
+  return { text: raw };
+};
+
+const mapApiMessage = (m: ApiMessage): Message => {
+  const { text, attachment } = parseMessageContent(m.content);
+  const user = m.user
+    ? { ...m.user, status: "online" as const }
+    : {
+        id: "unknown",
+        name: "Unknown",
+        email: "",
+        avatar: "",
+        status: "offline" as const,
+      };
+
+  return {
+    id: m.id,
+    content: text,
+    attachment,
+    user,
+    timestamp: new Date(m.timestamp),
+    reactions: m.reactions || [],
+    isPinned: m.isPinned,
+    pinnedBy: m.pinnedBy,
+  };
+};
+
+const encodeAttachmentPayload = (text: string, attachment: FileAttachment) => {
+  return `${FILE_SHARE_PREFIX}${JSON.stringify({
+    text,
+    attachment,
+  })}`;
+};
+
+const buildDisplayText = (text: string, attachment?: FileAttachment) => {
+  if (attachment) {
+    return text || `Shared ${attachment.name}`;
+  }
+  return text;
+};
 
 export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannelInterfaceProps) {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
@@ -127,17 +215,23 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
-  const [mainView, setMainView] = useState<"chat" | "files" | "calendar">("chat");
+  const [mainView, setMainView] = useState<"chat" | "files" | "calendar" | "team">("chat");
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator === "undefined" ? true : navigator.onLine
   );
+  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState<string | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<FileAttachment | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   const emojis = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "💯"];
   const pinnedMessages = messages.filter((m) => m.isPinned);
-  const toggleMainView = (view: "files" | "calendar") => {
+  const toggleMainView = (view: "files" | "calendar" | "team") => {
     setMainView((current) => (current === view ? "chat" : view));
     setShowPinnedMessages(false);
   };
@@ -145,6 +239,14 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     cn(
       "p-2 rounded transition-colors",
       isActive ? "bg-primary/10 text-primary" : "hover:bg-accent"
+    );
+
+  const workspaceButtonClass = (isActive: boolean) =>
+    cn(
+      "w-full flex items-center gap-2 rounded-lg border px-2 py-2 text-sm transition-colors",
+      isActive
+        ? "bg-primary/15 border-primary/40 text-foreground shadow-sm"
+        : "bg-card border-border/70 hover:bg-muted"
     );
 
   const formatTime = (d: Date) =>
@@ -269,21 +371,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
     const data: ApiMessage[] = await res.json();
 
-    const mapped: Message[] = data.map((m) => ({
-      ...m,
-      user: m.user
-        ? { ...m.user, status: "online" }
-        : {
-            id: "unknown",
-            name: "Unknown",
-            email: "",
-            avatar: "",
-            status: "offline",
-          },
-      timestamp: new Date(m.timestamp),
-    }));
-
-    setMessages(mapped);
+    setMessages(data.map((m) => mapApiMessage(m)));
   }, [currentChannel]);
 
   /* WebSockets */
@@ -292,24 +380,10 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     socketRef.current = socket;
 
     socket.on("new-message", (msg: ApiMessage) => {
+      const parsed = mapApiMessage(msg);
       setMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [
-          ...prev,
-          {
-            ...msg,
-            user: msg.user
-              ? { ...msg.user, status: "online" }
-              : {
-                  id: "unknown",
-                  name: "Unknown",
-                  email: "",
-                  avatar: "",
-                  status: "offline",
-                },
-            timestamp: new Date(msg.timestamp),
-          },
-        ];
+        if (prev.some((m) => m.id === parsed.id)) return prev;
+        return [...prev, parsed];
       });
     });
 
@@ -337,26 +411,37 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
   /* Send Message */
   const handleSendMessage = async () => {
-    if (!currentMessage.trim() || !currentUser || !currentChannel) return;
+    if (!currentUser || !currentChannel) return;
+    const trimmed = currentMessage.trim();
+    if (!trimmed && !pendingAttachment) return;
+
+    const attachment = pendingAttachment ? { ...pendingAttachment } : undefined;
+    const displayText = buildDisplayText(trimmed, attachment);
+    const rawContent = attachment ? encodeAttachmentPayload(trimmed, attachment) : trimmed;
+
+    if (!rawContent) return;
 
     const tempId = uuidv4();
     const optimistic: Message = {
       id: tempId,
-      content: currentMessage,
+      content: displayText,
       user: currentUser,
       timestamp: new Date(),
       reactions: [],
       isPinned: false,
+      attachment,
     };
 
     setMessages((prev) => [...prev, optimistic]);
     setCurrentMessage("");
+    setPendingAttachment(null);
+    setUploadError(null);
 
     const res = await fetch(`${API_URL}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        content: optimistic.content,
+        content: rawContent,
         channel_id: currentChannel.id,
         user_id: currentUser.id,
       }),
@@ -367,20 +452,9 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
       return;
     }
 
-    const saved = await res.json();
+    const saved = mapApiMessage(await res.json());
 
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === tempId
-          ? {
-              ...m,
-              id: saved.id,
-              timestamp: new Date(saved.timestamp),
-              isPinned: saved.isPinned,
-            }
-          : m
-      )
-    );
+    setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -515,6 +589,79 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const handleDeleteWorkspace = async (workspace: WorkspaceSummary) => {
+    if (!currentUser || workspace.is_personal || workspace.role !== "owner") return;
+    const confirmed = window.confirm(
+      `Delete workspace "${workspace.name}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingWorkspaceId(workspace.id);
+    try {
+      await deleteWorkspaceApi(workspace.id, currentUser.id);
+      const updatedWorkspaces = allWorkspaces.filter((w) => w.id !== workspace.id);
+      setAllWorkspaces(updatedWorkspaces);
+      setShowWorkspaceSwitcher(false);
+
+      if (workspace.id === workspaceId) {
+        if (updatedWorkspaces.length > 0) {
+          const nextWorkspace = updatedWorkspaces[0];
+          router.push(`/protected/workspace/${nextWorkspace.id}/chat`);
+        } else {
+          router.push("/protected/onboarding");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete workspace", error);
+      alert("Failed to delete workspace. Please try again.");
+    } finally {
+      setDeletingWorkspaceId(null);
+    }
+  };
+
+  const handleDocumentSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentUser) return;
+
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    setUploadingDoc(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("user_id", currentUser.id);
+
+      const res = await fetch(`${API_URL}/files/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.detail || "Failed to upload document");
+      }
+
+      const data = await res.json();
+      setPendingAttachment({
+        id: data.id,
+        name: data.name,
+        url: data.url,
+        size: data.size,
+        mime_type: data.mime_type,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setUploadError(message);
+    } finally {
+      setUploadingDoc(false);
+      if (event.target) {
+        event.target.value = "";
+      }
+    }
+  };
+
   /* Loading Screen */
   if (auth0Loading || !auth0User || !currentUser || !workspaceId || !currentChannel) {
     return (
@@ -528,7 +675,8 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <>
+      <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
       <div
         className={`${
@@ -553,33 +701,69 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
                 YOUR WORKSPACES
               </div>
-              {allWorkspaces.map((ws) => (
-                <button
-                  key={ws.id}
-                  onClick={() => {
-                    router.push(`/protected/workspace/${ws.id}/chat`);
-                    setShowWorkspaceSwitcher(false);
-                  }}
-                  className={`w-full text-left px-2 py-2 rounded hover:bg-accent flex items-center gap-2 ${
-                    ws.id === workspaceId ? "bg-accent" : ""
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{ws.name}</span>
-                  {ws.is_personal && <span className="text-xs text-muted-foreground">(You)</span>}
-                </button>
-              ))}
+              {allWorkspaces.map((ws) => {
+                const isActive = ws.id === workspaceId;
+                const canDelete = ws.role === "owner" && !ws.is_personal;
+                return (
+                  <div key={ws.id} className={workspaceButtonClass(isActive)}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push(`/protected/workspace/${ws.id}/chat`);
+                        setShowWorkspaceSwitcher(false);
+                      }}
+                      className="flex-1 flex items-center gap-2 text-left text-foreground"
+                    >
+                      <Building2
+                        className={cn(
+                          "w-4 h-4 shrink-0",
+                          isActive ? "text-primary" : "text-muted-foreground"
+                        )}
+                      />
+                      <span className="truncate font-medium">{ws.name}</span>
+                      {ws.is_personal && (
+                        <span
+                          className={cn(
+                            "text-xs",
+                            isActive ? "text-primary" : "text-muted-foreground"
+                          )}
+                        >
+                          (You)
+                        </span>
+                      )}
+                    </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteWorkspace(ws);
+                        }}
+                        className={cn(
+                          "p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive",
+                          deletingWorkspaceId === ws.id && "opacity-50 cursor-not-allowed"
+                        )}
+                        disabled={deletingWorkspaceId === ws.id}
+                        aria-label={`Delete workspace ${ws.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               <div className="border-t border-border my-2" />
               <button
+                type="button"
                 onClick={() => {
-              router.push("/protected/onboarding");
-              setShowWorkspaceSwitcher(false);
-            }}
-            className="w-full text-left px-2 py-2 rounded hover:bg-accent flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create or Join Workspace
-          </button>
+                  router.push("/protected/onboarding");
+                  setShowWorkspaceSwitcher(false);
+                }}
+                className={cn(workspaceButtonClass(false), "text-primary font-medium")}
+              >
+                <Plus className="w-4 h-4" />
+                Create or Join Workspace
+              </button>
         </div>
       </div>
     )}
@@ -753,12 +937,28 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             >
               <CalendarDays className="w-5 h-5" />
             </button>
+            <button
+              onClick={() => setShowVideoModal(true)}
+              className="p-2 hover:bg-accent rounded hidden sm:block"
+              title="Start video call"
+            >
+              <Video className="w-5 h-5" />
+            </button>
 
             <button className="p-2 hover:bg-accent rounded hidden sm:block">
               <Search className="w-5 h-5" />
             </button>
 
             <button className="p-2 hover:bg-accent rounded hidden sm:block">
+              <Search className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => toggleMainView("team")}
+              className={cn(mainAreaButtonClass(mainView === "team"), "hidden sm:block")}
+              aria-pressed={mainView === "team"}
+              title="Team snapshot"
+            >
               <Users className="w-5 h-5" />
             </button>
 
@@ -810,7 +1010,32 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                       )}
                     </div>
 
-                    <div className="mt-1 whitespace-pre-wrap break-words">{message.content}</div>
+                    {message.content && (
+                      <div className="mt-1 whitespace-pre-wrap break-words">{message.content}</div>
+                    )}
+
+                    {message.attachment && (
+                      <div className="mt-3 border border-border rounded-lg bg-muted/40 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-8 h-8 text-primary shrink-0" />
+                          <div>
+                            <div className="font-medium">{message.attachment.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(message.attachment.mime_type || "Document").split("/").pop()} •{" "}
+                              {formatBytes(message.attachment.size)}
+                            </div>
+                          </div>
+                        </div>
+                        <a
+                          href={resolveAttachmentUrl(message.attachment.url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary font-semibold hover:underline"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    )}
 
                     {message.reactions.length > 0 && (
                       <div className="flex gap-1 mt-2 flex-wrap">
@@ -868,24 +1093,63 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             </div>
 
             <div className="p-4 border-t border-border bg-card shrink-0">
-              <div className="border border-border rounded-lg overflow-hidden focus-within:border-ring transition-colors">
-                <textarea
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={`Message #${currentChannel.name}`}
+            <input
+              ref={docInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,application/pdf"
+              onChange={handleDocumentSelected}
+            />
+            {pendingAttachment && (
+              <div className="border border-dashed border-border rounded-lg bg-muted/30 p-3 flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <FileText className="w-6 h-6 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{pendingAttachment.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatBytes(pendingAttachment.size)}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPendingAttachment(null)}
+                  className="p-1 rounded hover:bg-accent text-muted-foreground"
+                  aria-label="Remove attachment"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {uploadError && (
+              <div className="text-sm text-destructive mb-2">{uploadError}</div>
+            )}
+            <div className="border border-border rounded-lg overflow-hidden focus-within:border-ring transition-colors">
+              <textarea
+                value={currentMessage}
+                onChange={(e) => setCurrentMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={`Message #${currentChannel.name}`}
                   className="w-full bg-transparent resize-none outline-none p-3 min-h-[60px] max-h-[200px]"
                   rows={1}
                 />
 
-                <div className="flex justify-between items-center px-3 pb-3">
-                  <div className="flex gap-1">
-                    <button className="p-1.5 hover:bg-accent rounded">
+              <div className="flex justify-between items-center px-3 pb-3">
+                <div className="flex gap-1">
+                  <button
+                    className="p-1.5 hover:bg-accent rounded disabled:opacity-50"
+                    onClick={() => docInputRef.current?.click()}
+                    disabled={uploadingDoc}
+                    title="Upload document"
+                  >
+                    {uploadingDoc ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
                       <Paperclip className="w-5 h-5" />
-                    </button>
+                    )}
+                  </button>
 
-                    <button
-                      className="p-1.5 hover:bg-accent rounded"
+                  <button
+                    className="p-1.5 hover:bg-accent rounded"
                       onClick={() =>
                         setShowEmojiPicker(showEmojiPicker === "composer" ? null : "composer")
                       }
@@ -895,7 +1159,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                   </div>
 
                   <Button
-                    disabled={!currentMessage.trim()}
+                    disabled={!currentMessage.trim() && !pendingAttachment}
                     onClick={handleSendMessage}
                     size="sm"
                     className="flex items-center gap-2"
@@ -908,14 +1172,45 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
           </>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
-            {mainView === "files" ? (
-              <FilePanel variant="embedded" />
-            ) : (
-              <CalendarPanel variant="embedded" />
-            )}
+            {mainView === "files" && <FilePanel variant="embedded" />}
+            {mainView === "calendar" && <CalendarPanel variant="embedded" />}
+            {mainView === "team" && <TeamSnapshotPanel variant="embedded" />}
           </div>
         )}
       </div>
     </div>
+
+      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bring the team on video</DialogTitle>
+            <DialogDescription>
+              Launch a quick call or wire this button into a dedicated meeting experience.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>Popular ways teams wire this up:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                Drop a Zoom, Meet, or Teams link straight into the channel to kick off an ad-hoc call.
+              </li>
+              <li>
+                Embed a WebRTC room (Daily, LiveKit, Twilio Video) so the button spins up an in-product
+                huddle.
+              </li>
+              <li>
+                Schedule a calendar event automatically and thread the meeting link back into chat.
+              </li>
+            </ul>
+            <p>Pick the approach that fits your stack today and iterate toward native huddles later.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowVideoModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

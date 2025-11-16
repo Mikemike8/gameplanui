@@ -15,6 +15,7 @@ REST:
 - POST /messages                         -> create message
 - PATCH /messages/{message_id}/pin       -> pin / unpin message
 - POST /reactions                        -> toggle reaction on a message
+- POST /files/upload                     -> upload attachments for messages
 
 Socket.IO events (server -> client):
 - "new-message"      -> broadcast new message payload
@@ -31,12 +32,14 @@ import enum
 import uuid
 import secrets
 import string
+from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import (
     create_engine,
@@ -270,6 +273,10 @@ fastapi_app.add_middleware(
   allow_methods=["*"],
   allow_headers=["*"],
 )
+
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+fastapi_app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 def get_db() -> Session:
@@ -551,6 +558,59 @@ def join_workspace(body: JoinWorkspaceRequest, db: Session = Depends(get_db)):
     return {"workspace_id": ws.id, "role": member.role}
 
 
+@fastapi_app.delete("/workspaces/{workspace_id}")
+def delete_workspace(
+    workspace_id: str,
+    user_id: str = Query(..., description="Owner user id"),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a workspace and all associated data.
+    """
+    ws = db.query(Workspace).filter(Workspace.id == workspace_id).first()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    if ws.is_personal:
+        raise HTTPException(status_code=400, detail="Cannot delete personal workspace")
+
+    if ws.owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the owner can delete this workspace")
+
+    channel_ids = [
+        channel_id
+        for (channel_id,) in db.query(Channel.id).filter(Channel.workspace_id == workspace_id).all()
+    ]
+
+    if channel_ids:
+        message_ids = [
+            message_id
+            for (message_id,) in db.query(Message.id)
+            .filter(Message.channel_id.in_(channel_ids))
+            .all()
+        ]
+
+        if message_ids:
+            db.query(MessageReaction).filter(MessageReaction.message_id.in_(message_ids)).delete(
+                synchronize_session=False
+            )
+
+        db.query(Message).filter(Message.channel_id.in_(channel_ids)).delete(
+            synchronize_session=False
+        )
+
+        db.query(Channel).filter(Channel.id.in_(channel_ids)).delete(synchronize_session=False)
+
+    db.query(WorkspaceMember).filter(WorkspaceMember.workspace_id == workspace_id).delete(
+        synchronize_session=False
+    )
+
+    db.delete(ws)
+    db.commit()
+
+    return {"success": True}
+
+
 # ------------------------------------------------------
 # CHANNELS
 # ------------------------------------------------------
@@ -609,6 +669,44 @@ def create_channel(body: ChannelCreate, db: Session = Depends(get_db)):
         "name": ch.name,
         "description": ch.description,
         "is_private": ch.is_private,
+    }
+
+
+# ------------------------------------------------------
+# FILE UPLOADS
+# ------------------------------------------------------
+
+
+@fastapi_app.post("/files/upload")
+async def upload_workspace_file(
+    user_id: str = Form(...),
+    file: UploadFile = File(...),
+):
+    """
+    Upload an attachment for chat messages.
+    Returns metadata consumed by the frontend.
+    Files are served statically from /uploads/<filename>.
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="File is empty")
+
+    ext = Path(file.filename).suffix
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    file_path = UPLOAD_DIR / stored_name
+    with open(file_path, "wb") as buffer:
+        buffer.write(contents)
+
+    return {
+        "id": str(uuid.uuid4()),
+        "name": file.filename,
+        "size": len(contents),
+        "mime_type": file.content_type,
+        "url": f"/uploads/{stored_name}",
+        "uploaded_by": user_id,
     }
 
 

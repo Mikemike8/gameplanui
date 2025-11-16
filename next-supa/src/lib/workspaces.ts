@@ -52,6 +52,10 @@ export interface JoinWorkspaceResponse {
   role: string;
 }
 
+export interface DeleteWorkspaceResponse {
+  success: boolean;
+}
+
 /* ------------------------- API FUNCTIONS ------------------------- */
 
 export async function getOrCreateBackendUser(auth0User: Auth0User): Promise<BackendUser> {
@@ -150,4 +154,19 @@ export async function createWorkspace(
   }
 
   return res.json() as Promise<CreateWorkspaceResponse>;
+}
+
+export async function deleteWorkspace(workspaceId: string, userId: string) {
+  const params = new URLSearchParams({ user_id: userId });
+  const res = await fetch(`${API_URL}/workspaces/${workspaceId}?${params.toString()}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => null);
+    throw new Error(error?.detail || "Failed to delete workspace");
+  }
+
+  return res.json() as Promise<DeleteWorkspaceResponse>;
 }
