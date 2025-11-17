@@ -25,8 +25,8 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           __html: `localStorage.setItem("backendUser", '${serializedUser.replace(/'/g, "\\'")}');`,
         }}
       />
-      {/* No navbar - chat interface is full-screen */}
-      <main className="h-screen overflow-hidden bg-background">{children}</main>
+      {/* Chat renders full-screen, other routes can scroll */}
+      <main className="min-h-screen bg-background">{children}</main>
     </UserProvider>
   );
 }
