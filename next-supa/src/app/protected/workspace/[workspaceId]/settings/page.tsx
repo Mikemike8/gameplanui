@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { CopyInviteButton } from "@/components/Workspace/CopyInviteButton";
 
 interface SettingsPageProps {
   params: Promise<{ workspaceId: string }>;
@@ -104,15 +105,7 @@ export default async function WorkspaceSettingsPage({ params }: SettingsPageProp
                     readOnly
                     className="font-mono bg-muted"
                   />
-                  <Button
-                    onClick={() => {
-                      if (workspace.invite_code) {
-                        navigator.clipboard.writeText(workspace.invite_code);
-                      }
-                    }}
-                  >
-                    Copy
-                  </Button>
+                  <CopyInviteButton inviteCode={workspace.invite_code} />
                 </div>
               </div>
             </CardContent>

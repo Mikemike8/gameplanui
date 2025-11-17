@@ -23,6 +23,7 @@ import {
   Video,
   X,
   Loader2,
+  CalendarClock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -45,8 +46,10 @@ import { useUser as useAuth0 } from "@auth0/nextjs-auth0/client";
 import { FilePanel } from "@/components/Workspace/FilePanel";
 import { CalendarPanel } from "@/components/Workspace/CalendarPanel";
 import { TeamSnapshotPanel } from "@/components/Workspace/TeamSnapshotPanel";
+import { TeamEventsPanel } from "@/components/Events/TeamEventsPanel";
 import { cn } from "@/lib/utils";
 import { deleteWorkspace as deleteWorkspaceApi } from "@/lib/workspaces";
+import { CopyInviteButton } from "@/components/Workspace/CopyInviteButton";
 
 /* Types */
 interface ApiUser {
@@ -216,7 +219,9 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
-  const [mainView, setMainView] = useState<"chat" | "files" | "calendar" | "team">("chat");
+  const [mainView, setMainView] = useState<"chat" | "files" | "calendar" | "team" | "events">(
+    "chat"
+  );
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -225,6 +230,8 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteWorkspace, setInviteWorkspace] = useState<WorkspaceSummary | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -232,7 +239,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
   const emojis = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "💯"];
   const pinnedMessages = messages.filter((m) => m.isPinned);
-  const toggleMainView = (view: "files" | "calendar" | "team") => {
+  const toggleMainView = (view: "files" | "calendar" | "team" | "events") => {
     setMainView((current) => (current === view ? "chat" : view));
     setShowPinnedMessages(false);
   };
@@ -663,6 +670,26 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     }
   };
 
+  const siteUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_SITE_URL || "https://gameplanuipro.onrender.com";
+
+  const inviteLink = inviteWorkspace?.invite_code
+    ? `${siteUrl}/protected/join/${inviteWorkspace.invite_code}`
+    : "";
+
+  const handleGenerateInviteCode = () => {
+    if (!inviteWorkspace) return;
+    const newCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+    setInviteWorkspace({ ...inviteWorkspace, invite_code: newCode });
+    setAllWorkspaces((prev) =>
+      prev.map((workspace) =>
+        workspace.id === inviteWorkspace.id ? { ...workspace, invite_code: newCode } : workspace
+      )
+    );
+  };
+
   /* Loading Screen */
   if (auth0Loading || !auth0User || !currentUser || !workspaceId || !currentChannel) {
     return (
@@ -757,17 +784,21 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               <button
                 type="button"
                 onClick={() => {
-                  router.push("/protected/onboarding");
-                  setShowWorkspaceSwitcher(false);
+                  const active = allWorkspaces.find((ws) => ws.id === workspaceId);
+                  if (active) {
+                    setInviteWorkspace(active);
+                    setInviteModalOpen(true);
+                    setShowWorkspaceSwitcher(false);
+                  }
                 }}
                 className={cn(workspaceButtonClass(false), "text-primary font-medium")}
               >
                 <Plus className="w-4 h-4" />
-                Create or Join Workspace
+                Invite Teammates
               </button>
-        </div>
-      </div>
-    )}
+            </div>
+          </div>
+        )}
 
         {/* Channels List */}
         <div className="flex-1 overflow-y-auto p-2">
@@ -930,13 +961,21 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               <FileText className="w-5 h-5" />
             </button>
 
-            <button
+            {/* <button
               onClick={() => toggleMainView("calendar")}
               className={cn(mainAreaButtonClass(mainView === "calendar"), "hidden sm:block")}
               aria-pressed={mainView === "calendar"}
               title="Calendar"
             >
               <CalendarDays className="w-5 h-5" />
+            </button> */}
+            <button
+              onClick={() => toggleMainView("events")}
+              className={cn(mainAreaButtonClass(mainView === "events"), "hidden sm:block")}
+              aria-pressed={mainView === "events"}
+              title="Team events"
+            >
+              <CalendarClock className="w-5 h-5" />
             </button>
             <button
               onClick={() => setShowVideoModal(true)}
@@ -946,9 +985,6 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               <Video className="w-5 h-5" />
             </button>
 
-            <button className="p-2 hover:bg-accent rounded hidden sm:block">
-              <Search className="w-5 h-5" />
-            </button>
 
             <button className="p-2 hover:bg-accent rounded hidden sm:block">
               <Search className="w-5 h-5" />
@@ -1176,6 +1212,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             {mainView === "files" && <FilePanel variant="embedded" />}
             {mainView === "calendar" && <CalendarPanel variant="embedded" />}
             {mainView === "team" && <TeamSnapshotPanel variant="embedded" />}
+            {mainView === "events" && <TeamEventsPanel isAdmin variant="embedded" />}
           </div>
         )}
       </div>
@@ -1207,6 +1244,43 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowVideoModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite teammates</DialogTitle>
+            <DialogDescription>
+              Share this link or regenerate a new invite code for your workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Invite link</label>
+              <div className="flex gap-2">
+                <Input value={inviteLink} readOnly className="font-mono text-xs" />
+                <CopyInviteButton inviteCode={inviteLink} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Team code</label>
+              <div className="flex gap-2">
+                <Input
+                  value={inviteWorkspace?.invite_code ?? "No code"}
+                  readOnly
+                  className="font-mono text-xs"
+                />
+                <Button variant="outline" onClick={handleGenerateInviteCode}>
+                  Generate code
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInviteModalOpen(false)}>
               Close
             </Button>
           </DialogFooter>

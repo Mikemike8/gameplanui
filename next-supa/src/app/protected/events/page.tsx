@@ -1,13 +1,9 @@
+// src/app/protected/events/page.tsx
 "use client";
 
-import React from "react";
-import { Eventboard } from "@/components/Dashboard/EventBoard/Eventboard";
+import { TeamEventsPanel } from "@/components/Events/TeamEventsPanel";
 
-// No props on the page component
 export default function EventsPage() {
-  return (
-    <div className="bg-transparent rounded-lg pb-0 shadow">
-      <Eventboard />
-    </div>
-  );
+  // In the future hook into auth/role. For now assume admins can create events.
+  return <TeamEventsPanel isAdmin />;
 }
