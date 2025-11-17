@@ -18,7 +18,9 @@ export default function PostPerson() {
 
     try {
       // Send a POST request to the FastAPI backend
-      const response = await fetch("http://127.0.0.1:8000/people", {
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "https://ggameplan-backend.onrender.com";
+      const response = await fetch(`${apiUrl}/people`, {
         method: "POST", // HTTP method
         headers: { "Content-Type": "application/json" }, // Specify JSON payload
         body: JSON.stringify({ name, email }), // Convert input values to JSON

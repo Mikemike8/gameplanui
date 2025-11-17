@@ -116,7 +116,8 @@ interface FileAttachment {
   mime_type?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://ggameplan-backend.onrender.com";
 const FILE_SHARE_PREFIX = "FILE_SHARE::";
 
 const formatBytes = (bytes: number) => {
