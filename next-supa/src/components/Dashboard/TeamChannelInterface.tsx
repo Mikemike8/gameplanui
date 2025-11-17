@@ -465,7 +465,13 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
     const saved = mapApiMessage(await res.json());
 
-    setMessages((prev) => prev.map((m) => (m.id === tempId ? saved : m)));
+    setMessages((prev) => {
+      const withoutTemp = prev.filter((m) => m.id !== tempId);
+      if (withoutTemp.some((m) => m.id === saved.id)) {
+        return withoutTemp;
+      }
+      return [...withoutTemp, saved];
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
