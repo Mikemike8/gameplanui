@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import {
   Send,
   Hash,
+  Menu,
   Smile,
   Paperclip,
   Plus,
@@ -17,7 +18,6 @@ import {
   LogOut,
   Building2,
   FileText,
-  CalendarDays,
   MessageSquare,
   Trash2,
   Video,
@@ -210,6 +210,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [currentChannel, setCurrentChannel] = useState<Channel | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
 
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
@@ -262,6 +263,29 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
   const formatTime = (d: Date) =>
     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const applyMatch = (matches: boolean) => {
+      setIsDesktop(matches);
+      setSidebarOpen(matches);
+    };
+    applyMatch(mediaQuery.matches);
+    const listener = (event: MediaQueryListEvent) => applyMatch(event.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", listener);
+      return () => mediaQuery.removeEventListener("change", listener);
+    }
+    mediaQuery.addListener(listener);
+    return () => mediaQuery.removeListener(listener);
+  }, []);
+
+  const closeSidebarOnMobile = useCallback(() => {
+    if (!isDesktop) {
+      setSidebarOpen(false);
+    }
+  }, [isDesktop]);
 
   /* Load Current User */
   const loadCurrentUser = useCallback(async () => {
@@ -724,13 +748,23 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
   return (
     <>
-      <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      {/* Sidebar */}
-      <div
-        className={`${
-          sidebarOpen ? "w-64" : "w-0"
-        } slack-sidebar transition-all duration-200 flex flex-col border-r border-sidebar-border`}
-      >
+      <div className="flex min-h-[100dvh] bg-background text-foreground overflow-hidden">
+        {!isDesktop && sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm transition-opacity lg:hidden"
+            onClick={closeSidebarOnMobile}
+          />
+        )}
+        {/* Sidebar */}
+        <aside
+          className={cn(
+            "slack-sidebar fixed inset-y-0 left-0 z-40 flex w-64 max-w-[85vw] shrink-0 flex-col border-r border-sidebar-border text-sidebar-foreground shadow-lg transition-transform duration-200 ease-out lg:static lg:max-w-none lg:translate-x-0 lg:shadow-none",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full",
+            !sidebarOpen && !isDesktop && "pointer-events-none"
+          )}
+          aria-label="Workspace navigation"
+          aria-hidden={!isDesktop && !sidebarOpen}
+        >
         {/* Workspace Header */}
         <div className="h-14 px-4 flex items-center justify-between border-b border-sidebar-border shrink-0">
           <button
@@ -744,7 +778,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
         {/* Workspace Switcher Dropdown */}
         {showWorkspaceSwitcher && (
-          <div className="absolute top-14 left-0 w-64 bg-card border border-border shadow-lg rounded-b-lg z-50 max-h-80 overflow-y-auto">
+          <div className="absolute top-14 left-0 w-full sm:w-64 bg-card border border-border shadow-lg rounded-b-lg z-50 max-h-80 overflow-y-auto">
             <div className="p-2">
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">
                 YOUR WORKSPACES
@@ -759,6 +793,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                       onClick={() => {
                         router.push(`/protected/workspace/${ws.id}/chat`);
                         setShowWorkspaceSwitcher(false);
+                        closeSidebarOnMobile();
                       }}
                       className="flex-1 flex items-center gap-2 text-left text-foreground"
                     >
@@ -881,7 +916,10 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             {channels.map((channel) => (
               <button
                 key={channel.id}
-                onClick={() => setCurrentChannel(channel)}
+                onClick={() => {
+                  setCurrentChannel(channel);
+                  closeSidebarOnMobile();
+                }}
                 className={`w-full flex items-center px-2 py-1 rounded slack-channel-item text-sm ${
                   currentChannel.id === channel.id ? "slack-channel-active" : ""
                 }`}
@@ -925,117 +963,108 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             <LogOut className="w-5 h-5" />
           </button>
         </div>
-      </div>
+        </aside>
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Header */}
+          <div className="h-14 border-b border-border flex items-center px-3 sm:px-4 bg-card shrink-0">
+            <button
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              className="mr-2 p-2 hover:bg-accent rounded lg:hidden"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="h-14 border-b border-border flex items-center px-4 bg-card shrink-0">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="mr-2 p-2 hover:bg-accent rounded lg:hidden"
-          >
-            <Hash className="w-5 h-5" />
-          </button>
+            <div className="flex items-center flex-1 min-w-0 gap-2">
+              <Hash className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="flex flex-col min-w-0">
+                <div className="font-bold truncate">{currentChannel.name}</div>
+                {currentChannel.description && (
+                  <div className="text-xs text-muted-foreground truncate">
+                    {currentChannel.description}
+                  </div>
+                )}
+              </div>
+            </div>
 
-          <div className="flex items-center flex-1 min-w-0">
-            <Hash className="w-5 h-5 text-muted-foreground mr-2 shrink-0" />
-            <div className="flex flex-col min-w-0">
-              <div className="font-bold truncate">{currentChannel.name}</div>
-              {currentChannel.description && (
-                <div className="text-xs text-muted-foreground truncate">
-                  {currentChannel.description}
-                </div>
-              )}
+            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setMainView("chat")}
+                className={mainAreaButtonClass(mainView === "chat")}
+                aria-pressed={mainView === "chat"}
+                title="Messages"
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => setShowPinnedMessages(!showPinnedMessages)}
+                className="relative p-2 hover:bg-accent rounded"
+              >
+                <Pin className="w-5 h-5" />
+                {pinnedMessages.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                    {pinnedMessages.length}
+                  </Badge>
+                )}
+              </button>
+
+              <button
+                onClick={() => toggleMainView("files")}
+                className={cn(mainAreaButtonClass(mainView === "files"), "hidden sm:block")}
+                aria-pressed={mainView === "files"}
+                title="Files"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => toggleMainView("events")}
+                className={cn(mainAreaButtonClass(mainView === "events"), "hidden sm:block")}
+                aria-pressed={mainView === "events"}
+                title="Team events"
+              >
+                <CalendarClock className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setShowVideoModal(true)}
+                className="p-2 hover:bg-accent rounded hidden sm:block"
+                title="Start video call"
+              >
+                <Video className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="p-2 hover:bg-accent rounded hidden sm:block"
+                title="Search messages"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => toggleMainView("team")}
+                className={cn(mainAreaButtonClass(mainView === "team"), "hidden sm:block")}
+                aria-pressed={mainView === "team"}
+                title="Team snapshot"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={() => router.push(`/protected/workspace/${workspaceId}/settings`)}
+                className="p-2 hover:bg-accent rounded"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMainView("chat")}
-              className={mainAreaButtonClass(mainView === "chat")}
-              aria-pressed={mainView === "chat"}
-              title="Messages"
-            >
-              <MessageSquare className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => setShowPinnedMessages(!showPinnedMessages)}
-              className="relative p-2 hover:bg-accent rounded"
-            >
-              <Pin className="w-5 h-5" />
-              {pinnedMessages.length > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                  {pinnedMessages.length}
-                </Badge>
-              )}
-            </button>
-
-            <button
-              onClick={() => toggleMainView("files")}
-              className={cn(mainAreaButtonClass(mainView === "files"), "hidden sm:block")}
-              aria-pressed={mainView === "files"}
-              title="Files"
-            >
-              <FileText className="w-5 h-5" />
-            </button>
-
-            {/* <button
-              onClick={() => toggleMainView("calendar")}
-              className={cn(mainAreaButtonClass(mainView === "calendar"), "hidden sm:block")}
-              aria-pressed={mainView === "calendar"}
-              title="Calendar"
-            >
-              <CalendarDays className="w-5 h-5" />
-            </button> */}
-            <button
-              onClick={() => toggleMainView("events")}
-              className={cn(mainAreaButtonClass(mainView === "events"), "hidden sm:block")}
-              aria-pressed={mainView === "events"}
-              title="Team events"
-            >
-              <CalendarClock className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setShowVideoModal(true)}
-              className="p-2 hover:bg-accent rounded hidden sm:block"
-              title="Start video call"
-            >
-              <Video className="w-5 h-5" />
-            </button>
-
-
-            <button
-              onClick={() => setShowSearchModal(true)}
-              className="p-2 hover:bg-accent rounded hidden sm:block"
-              title="Search messages"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => toggleMainView("team")}
-              className={cn(mainAreaButtonClass(mainView === "team"), "hidden sm:block")}
-              aria-pressed={mainView === "team"}
-              title="Team snapshot"
-            >
-              <Users className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={() => router.push(`/protected/workspace/${workspaceId}/settings`)}
-              className="p-2 hover:bg-accent rounded"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
 
         {mainView === "chat" ? (
           <>
             {showPinnedMessages && pinnedMessages.length > 0 && (
-              <div className="bg-primary/5 border-b border-border p-3 text-sm space-y-2">
+              <div className="bg-primary/5 border-b border-border px-3 py-2 text-sm space-y-2 sm:px-4 sm:py-3">
                 <div className="font-semibold flex items-center gap-2">
                   <Pin className="w-4 h-4" />
                   Pinned Messages
@@ -1048,13 +1077,13 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3 sm:px-4 sm:space-y-4">
               {messages.map((message) => (
                 <div key={message.id} className="flex gap-3 group relative">
                   <img
                     src={message.user.avatar}
                     alt={message.user.name}
-                    className="w-10 h-10 rounded shrink-0"
+                    className="w-9 h-9 rounded shrink-0 object-cover sm:w-10 sm:h-10"
                   />
 
                   <div className="flex-1 min-w-0">
@@ -1117,7 +1146,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                     )}
                   </div>
 
-                  <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 flex gap-1 bg-card border border-border rounded shadow-sm">
+                  <div className="absolute right-0 top-1 opacity-0 group-hover:opacity-100 flex gap-1 border border-border rounded bg-card/95 p-1 shadow-sm backdrop-blur-sm sm:right-2">
                     <button
                       onClick={() =>
                         setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id)
@@ -1153,67 +1182,66 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t border-border bg-card shrink-0">
-            <input
-              ref={docInputRef}
-              type="file"
-              className="hidden"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,application/pdf"
-              onChange={handleDocumentSelected}
-            />
-            {pendingAttachment && (
-              <div className="border border-dashed border-border rounded-lg bg-muted/30 p-3 flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="w-6 h-6 text-primary shrink-0" />
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{pendingAttachment.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatBytes(pendingAttachment.size)}
+            <div className="px-3 py-4 border-t border-border bg-card shrink-0 sm:px-4">
+              <input
+                ref={docInputRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,application/pdf"
+                onChange={handleDocumentSelected}
+              />
+              {pendingAttachment && (
+                <div className="border border-dashed border-border rounded-lg bg-muted/30 p-3 flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="w-6 h-6 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{pendingAttachment.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatBytes(pendingAttachment.size)}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setPendingAttachment(null)}
+                    className="p-1 rounded hover:bg-accent text-muted-foreground"
+                    aria-label="Remove attachment"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setPendingAttachment(null)}
-                  className="p-1 rounded hover:bg-accent text-muted-foreground"
-                  aria-label="Remove attachment"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-            {uploadError && (
-              <div className="text-sm text-destructive mb-2">{uploadError}</div>
-            )}
-            <div className="border border-border rounded-lg overflow-hidden focus-within:border-ring transition-colors">
-              <textarea
-                value={currentMessage}
-                onChange={(e) => setCurrentMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={`Message #${currentChannel.name}`}
+              )}
+              {uploadError && <div className="text-sm text-destructive mb-2">{uploadError}</div>}
+              <div className="border border-border rounded-lg overflow-hidden focus-within:border-ring transition-colors">
+                <textarea
+                  value={currentMessage}
+                  onChange={(e) => setCurrentMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={`Message #${currentChannel.name}`}
                   className="w-full bg-transparent resize-none outline-none p-3 min-h-[60px] max-h-[200px]"
                   rows={1}
                 />
 
-              <div className="flex justify-between items-center px-3 pb-3">
-                <div className="flex gap-1">
-                  <button
-                    className="p-1.5 hover:bg-accent rounded disabled:opacity-50"
-                    onClick={() => docInputRef.current?.click()}
-                    disabled={uploadingDoc}
-                    title="Upload document"
-                  >
-                    {uploadingDoc ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Paperclip className="w-5 h-5" />
-                    )}
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 pb-3">
+                  <div className="flex gap-1.5">
+                    <button
+                      className="p-1.5 hover:bg-accent rounded disabled:opacity-50"
+                      onClick={() => docInputRef.current?.click()}
+                      disabled={uploadingDoc}
+                      title="Upload document"
+                    >
+                      {uploadingDoc ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Paperclip className="w-5 h-5" />
+                      )}
+                    </button>
 
-                  <button
-                    className="p-1.5 hover:bg-accent rounded"
+                    <button
+                      className="p-1.5 hover:bg-accent rounded"
                       onClick={() =>
                         setShowEmojiPicker(showEmojiPicker === "composer" ? null : "composer")
                       }
+                      title="Add reaction"
                     >
                       <Smile className="w-5 h-5" />
                     </button>

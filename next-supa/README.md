@@ -55,7 +55,7 @@ The FastAPI service (outside this repo) handles `/users/me`, `/workspaces/*`, `/
 
 ## 3. Environment & Configuration
 
-Create `next-supa/.env.local` for local development, and set the same keys in Render’s frontend service (Environment tab). Minimum keys:
+Create `next-supa/.env.local` for local development (the repo now ships `next-supa/.env.local.example`, so run `cp next-supa/.env.local.example next-supa/.env.local` and fill it in). Set the same keys in Render’s frontend service (Environment tab). Minimum keys:
 
 ```
 AUTH0_SECRET=...
@@ -69,9 +69,42 @@ API_URL=http://127.0.0.1:8000
 NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used for invite links during SSR
 ```
 
-- **Local run**: `cd next-supa && npm install && npm run dev`. Be sure the FastAPI server runs on `127.0.0.1:8000`.
-- **Render frontend**: `NEXT_PUBLIC_API_URL` and `API_URL` must point to the backend service URL (e.g., `https://ggameplan-backend.onrender.com`).
-- **Backend env**: In Render’s backend service, set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`, and if you prefer, a full `DATABASE_URL`.
+The backend uses `Backend/.env` (copy from `Backend/.env.example`) to source its Postgres credentials locally and on Render. Minimum keys:
+
+```
+DB_HOST=...
+DB_PORT=...
+DB_NAME=...
+DB_USER=...
+DB_PASSWORD=...
+# optional DATABASE_URL override
+```
+
+### Local stack quickstart (frontend + backend)
+
+1. **Postgres (optional)**: production runs on Postgres, but for quick local smoke tests the backend auto-falls back to `sqlite:///Backend/gameplan.db` when no `DB_*` envs are set. To mirror prod locally, start Postgres (`docker run --name gameplan-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=gameplan -p 5432:5432 -d postgres:15`) and update `Backend/.env`.
+2. **Backend API**:
+   ```bash
+   cd Backend
+   python -m venv .venv && source .venv/bin/activate  # or use pyenv/conda
+   pip install -r requirements.txt
+   cp .env.example .env  # then edit DB_* values
+   uvicorn main:fastapi_app --reload --host 0.0.0.0 --port 8000
+   ```
+3. **Frontend**:
+   ```bash
+   cd next-supa
+   cp .env.local.example .env.local  # plug in Auth0 + API URL
+   npm install
+   npm run dev
+   ```
+4. Visit `http://localhost:3000`. Auth0 must have `http://localhost:3000` listed as an allowed callback/logout URL.
+
+### Render deployment recap
+
+- **Frontend**: `NEXT_PUBLIC_API_URL` and `API_URL` must point to the backend Render service (e.g., `https://ggameplan-backend.onrender.com`). Keep `NEXT_PUBLIC_SITE_URL` in sync with your Render custom domain.
+- **Backend**: Set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_PORT` (or an explicit `DATABASE_URL`) in Render → Environment. The FastAPI service runs via `uvicorn main:fastapi_app --host 0.0.0.0 --port ${PORT}`.
+- **Local verification**: before pushing, run through Auth → Onboarding → Chat → Events → Files → Invite flows locally to ensure both services stay in lockstep.
 
 ---
 
