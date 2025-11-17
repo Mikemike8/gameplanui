@@ -239,6 +239,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageScrollRef = useRef<HTMLDivElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const emojis = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "💯"];
@@ -626,9 +627,32 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     );
   }, [isOnline]);
 
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+
   useEffect(() => {
+    const container = messageScrollRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+      setShouldAutoScroll(distanceFromBottom < 120);
+    };
+
+    handleScroll();
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!shouldAutoScroll) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, shouldAutoScroll]);
+
+  const jumpToLatest = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setShouldAutoScroll(true);
+  };
 
   const handleDeleteWorkspace = async (workspace: SwitcherWorkspace) => {
     if (!currentUser || workspace.is_personal || workspace.role !== "owner") return;
@@ -1077,7 +1101,10 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3 sm:px-4 sm:space-y-4">
+            <div
+              ref={messageScrollRef}
+              className="relative flex-1 overflow-y-auto px-3 py-4 space-y-3 sm:px-4 sm:space-y-4"
+            >
               {messages.map((message) => (
                 <div key={message.id} className="flex gap-3 group relative">
                   <img
@@ -1179,6 +1206,14 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                   )}
                 </div>
               ))}
+              {!shouldAutoScroll && (
+                <button
+                  onClick={jumpToLatest}
+                  className="sticky bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/30"
+                >
+                  Jump to latest
+                </button>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
