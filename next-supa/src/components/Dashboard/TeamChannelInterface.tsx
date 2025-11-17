@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import {
   Send,
   Hash,
+  MoreHorizontal,
   Menu,
   Smile,
   Paperclip,
@@ -236,6 +237,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [inviteWorkspace, setInviteWorkspace] = useState<SwitcherWorkspace | null>(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -652,6 +654,16 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const jumpToLatest = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setShouldAutoScroll(true);
+  };
+
+  const handleMobileViewToggle = (view: "files" | "calendar" | "team" | "events") => {
+    toggleMainView(view);
+    setMobileActionsOpen(false);
+  };
+
+  const triggerAfterMenuClose = (cb: () => void) => {
+    setMobileActionsOpen(false);
+    setTimeout(cb, 0);
   };
 
   const handleDeleteWorkspace = async (workspace: SwitcherWorkspace) => {
@@ -1082,6 +1094,14 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               >
                 <Settings className="w-5 h-5" />
               </button>
+
+              <button
+                onClick={() => setMobileActionsOpen(true)}
+                className="p-2 hover:bg-accent rounded sm:hidden"
+                aria-label="More actions"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
@@ -1409,6 +1429,77 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               Close
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={mobileActionsOpen} onOpenChange={setMobileActionsOpen}>
+        <DialogContent className="sm:hidden">
+          <DialogHeader>
+            <DialogTitle>More actions</DialogTitle>
+            <DialogDescription>Shortcuts that are hidden on small screens.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <button
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left",
+                mainView === "files" ? "border-primary bg-primary/5" : "border-border hover:bg-muted"
+              )}
+              onClick={() => handleMobileViewToggle("files")}
+            >
+              <FileText className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-medium">Files & Docs</span>
+                <span className="text-xs text-muted-foreground">Open workspace files panel</span>
+              </div>
+            </button>
+            <button
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left",
+                mainView === "events"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted"
+              )}
+              onClick={() => handleMobileViewToggle("events")}
+            >
+              <CalendarClock className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-medium">Team Events</span>
+                <span className="text-xs text-muted-foreground">Check the shared schedule</span>
+              </div>
+            </button>
+            <button
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left",
+                mainView === "team" ? "border-primary bg-primary/5" : "border-border hover:bg-muted"
+              )}
+              onClick={() => handleMobileViewToggle("team")}
+            >
+              <Users className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-medium">Team Snapshot</span>
+                <span className="text-xs text-muted-foreground">View quick team insights</span>
+              </div>
+            </button>
+            <button
+              className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left hover:bg-muted"
+              onClick={() => triggerAfterMenuClose(() => setShowVideoModal(true))}
+            >
+              <Video className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-medium">Start video huddle</span>
+                <span className="text-xs text-muted-foreground">Kick off a quick call</span>
+              </div>
+            </button>
+            <button
+              className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left hover:bg-muted"
+              onClick={() => triggerAfterMenuClose(() => setShowSearchModal(true))}
+            >
+              <Search className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-medium">Search messages</span>
+                <span className="text-xs text-muted-foreground">Find people or updates</span>
+              </div>
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
     </>
