@@ -76,11 +76,12 @@ interface ApiChannel {
   is_private: boolean;
 }
 
-interface WorkspaceSummary {
+interface SwitcherWorkspace {
   id: string;
   name: string;
   role: string;
   is_personal: boolean;
+  invite_code?: string | null;
 }
 
 interface User extends ApiUser {
@@ -202,7 +203,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string>("");
-  const [allWorkspaces, setAllWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [allWorkspaces, setAllWorkspaces] = useState<SwitcherWorkspace[]>([]);
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -231,7 +232,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [inviteWorkspace, setInviteWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [inviteWorkspace, setInviteWorkspace] = useState<SwitcherWorkspace | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -287,7 +288,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
         cache: "no-store",
       });
 
-      const workspaces: WorkspaceSummary[] = await res.json();
+      const workspaces: SwitcherWorkspace[] = await res.json();
       setAllWorkspaces(workspaces);
 
       if (initialWorkspaceId) {
@@ -597,7 +598,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleDeleteWorkspace = async (workspace: WorkspaceSummary) => {
+  const handleDeleteWorkspace = async (workspace: SwitcherWorkspace) => {
     if (!currentUser || workspace.is_personal || workspace.role !== "owner") return;
     const confirmed = window.confirm(
       `Delete workspace "${workspace.name}"? This action cannot be undone.`
