@@ -233,6 +233,8 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteWorkspace, setInviteWorkspace] = useState<SwitcherWorkspace | null>(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -691,6 +693,17 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     );
   };
 
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const term = searchQuery.toLowerCase();
+    return messages
+      .filter(
+        (message) =>
+          message.content?.toLowerCase().includes(term) ||
+          message.user.name.toLowerCase().includes(term)
+      )
+      .slice(0, 20);
+  }, [messages, searchQuery]);
   /* Loading Screen */
   if (auth0Loading || !auth0User || !currentUser || !workspaceId || !currentChannel) {
     return (
@@ -987,7 +1000,11 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             </button>
 
 
-            <button className="p-2 hover:bg-accent rounded hidden sm:block">
+            <button
+              onClick={() => setShowSearchModal(true)}
+              className="p-2 hover:bg-accent rounded hidden sm:block"
+              title="Search messages"
+            >
               <Search className="w-5 h-5" />
             </button>
 
@@ -1245,6 +1262,44 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowVideoModal(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showSearchModal} onOpenChange={setShowSearchModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Search conversation</DialogTitle>
+            <DialogDescription>Find messages or teammates across this channel.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              autoFocus
+              placeholder="Search messages..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <div className="max-h-72 overflow-y-auto space-y-3">
+              {searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery.trim() ? "No matches found." : "Start typing to search messages."}
+                </p>
+              ) : (
+                searchResults.map((message) => (
+                  <div key={message.id} className="border rounded-lg p-3 text-sm space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">{message.user.name}</span>
+                      <span>{formatTime(message.timestamp)}</span>
+                    </div>
+                    <p className="text-foreground">{message.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSearchModal(false)}>
               Close
             </Button>
           </DialogFooter>
