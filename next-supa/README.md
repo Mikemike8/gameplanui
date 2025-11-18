@@ -134,6 +134,18 @@ DB_PASSWORD=...
 5. **Team dashboard & snapshot**
    - `<TeamSnapshotPanel>` surfaces the “next event”, unread counts, activity chips, etc. Use E2E tests to ensure dashboard data stays in sync once wired to backend telemetry.
 
+### Keyboard shortcuts (Cmd on macOS / Ctrl on Windows)
+
+| Shortcut | Action |
+| --- | --- |
+| `Cmd/Ctrl + B` | Toggle the channel sidebar. |
+| `Cmd/Ctrl + K` | Open the conversation search / quick switcher modal. |
+| `Cmd/Ctrl + Shift + F` | Toggle the Files panel. |
+| `Cmd/Ctrl + Shift + E` | Toggle Team Events. |
+| `Cmd/Ctrl + Shift + T` | Toggle the Team Snapshot dashboard. |
+| `Cmd/Ctrl + Shift + V` | Open the “Start video huddle” dialog. |
+| `Cmd/Ctrl + Shift + M` | Jump focus to the message composer. |
+
 ---
 
 ## 5. Security & Hardening Suggestions

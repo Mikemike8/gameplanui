@@ -19,6 +19,8 @@ import {
   LogOut,
   Building2,
   FileText,
+  Home,
+  Bell,
   MessageSquare,
   Trash2,
   Video,
@@ -242,14 +244,15 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageScrollRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const emojis = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "💯"];
   const pinnedMessages = messages.filter((m) => m.isPinned);
-  const toggleMainView = (view: "files" | "calendar" | "team" | "events") => {
+  const toggleMainView = useCallback((view: "files" | "calendar" | "team" | "events") => {
     setMainView((current) => (current === view ? "chat" : view));
     setShowPinnedMessages(false);
-  };
+  }, []);
   const mainAreaButtonClass = (isActive: boolean) =>
     cn(
       "p-2 rounded transition-colors",
@@ -666,6 +669,105 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     setTimeout(cb, 0);
   };
 
+  const navStripItems = useMemo(
+    () => [
+      {
+        id: "home",
+        label: "Workspace home",
+        icon: Home,
+        active: mainView === "chat",
+        onClick: () => router.push(`/protected/workspace/${workspaceId}/chat`),
+      },
+      {
+        id: "notifications",
+        label: "Notifications",
+        icon: Bell,
+        active: false,
+        onClick: () => router.push("/protected/notifications"),
+      },
+      {
+        id: "files",
+        label: "Files",
+        icon: FileText,
+        active: mainView === "files",
+        onClick: () => toggleMainView("files"),
+      },
+    ],
+    [mainView, router, toggleMainView, workspaceId]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const combosAllowedWhileTyping = new Set(["k", "shift+m"]);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) return;
+
+      const target = event.target as HTMLElement | null;
+      const isEditable =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          target.getAttribute("role") === "textbox");
+
+      const loweredKey = event.key.toLowerCase();
+      const combo = `${event.shiftKey ? "shift+" : ""}${loweredKey}`;
+
+      if (isEditable && !combosAllowedWhileTyping.has(combo)) {
+        return;
+      }
+
+      switch (combo) {
+        case "b": {
+          event.preventDefault();
+          setSidebarOpen((prev) => !prev);
+          setMobileActionsOpen(false);
+          break;
+        }
+        case "k": {
+          event.preventDefault();
+          setShowSearchModal(true);
+          setMobileActionsOpen(false);
+          break;
+        }
+        case "shift+f": {
+          event.preventDefault();
+          toggleMainView("files");
+          break;
+        }
+        case "shift+e": {
+          event.preventDefault();
+          toggleMainView("events");
+          break;
+        }
+        case "shift+t": {
+          event.preventDefault();
+          toggleMainView("team");
+          break;
+        }
+        case "shift+v": {
+          event.preventDefault();
+          setShowVideoModal(true);
+          setMobileActionsOpen(false);
+          break;
+        }
+        case "shift+m": {
+          event.preventDefault();
+          composerRef.current?.focus();
+          composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          break;
+        }
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [toggleMainView]);
+
   const handleDeleteWorkspace = async (workspace: SwitcherWorkspace) => {
     if (!currentUser || workspace.is_personal || workspace.role !== "owner") return;
     const confirmed = window.confirm(
@@ -791,6 +893,30 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             onClick={closeSidebarOnMobile}
           />
         )}
+        {/* Desktop Quick Nav Strip */}
+        <div className="hidden lg:flex w-16 flex-col items-center gap-3 border-r border-sidebar-border bg-sidebar/95 px-2 py-4 text-sidebar-foreground">
+          <div className="rounded-full bg-sidebar-accent/60 p-2 text-sidebar-foreground">
+            <Hash className="w-5 h-5" />
+          </div>
+          <div className="h-px w-8 bg-sidebar-border/80" />
+          {navStripItems.map(({ id, label, icon: Icon, onClick, active }) => (
+            <button
+              key={id}
+              onClick={onClick}
+              className={cn(
+                "relative flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                active ? "bg-primary text-primary-foreground" : "hover:bg-sidebar-accent"
+              )}
+              title={label}
+              aria-label={label}
+              aria-pressed={active}
+            >
+              {active && <span className="absolute left-0 h-6 w-1 rounded-r-full bg-primary-foreground" />}
+              <Icon className="w-5 h-5" />
+            </button>
+          ))}
+        </div>
+
         {/* Sidebar */}
         <aside
           className={cn(
@@ -1273,6 +1399,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                   onKeyPress={handleKeyPress}
                   placeholder={`Message #${currentChannel.name}`}
                   className="w-full bg-transparent resize-none outline-none p-3 min-h-[60px] max-h-[200px]"
+                  ref={composerRef}
                   rows={1}
                 />
 
