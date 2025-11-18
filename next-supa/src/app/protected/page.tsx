@@ -12,10 +12,12 @@ export default async function ProtectedIndexPage() {
   const backendUser = await getOrCreateBackendUser(session.user as Auth0User);
   const workspaces = await fetchMyWorkspaces(backendUser.id);
 
-  if (!workspaces.length) {
-    redirect("/protected/spaces"); // prompt to create/join
+  const hasNonPersonalWorkspace = workspaces.some((w) => !w.is_personal);
+
+  if (!workspaces.length || !hasNonPersonalWorkspace) {
+    redirect("/protected/onboarding");
   }
 
-  const defaultWorkspace = workspaces.find((w) => w.is_personal) ?? workspaces[0];
+  const defaultWorkspace = workspaces.find((w) => !w.is_personal) ?? workspaces[0];
   redirect(`/protected/workspace/${defaultWorkspace.id}`);
 }
