@@ -66,7 +66,8 @@ export async function getOrCreateBackendUser(auth0User: Auth0User): Promise<Back
     throw new Error("Auth0 user is missing email");
   }
 
-  const res = await fetch(`${API_URL}/users/me`, {
+  const targetUrl = `${API_URL}/users/me`;
+  const res = await fetch(targetUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
@@ -78,6 +79,11 @@ export async function getOrCreateBackendUser(auth0User: Auth0User): Promise<Back
   });
 
   if (!res.ok) {
+    const errorPayload = await res.text().catch(() => "");
+    console.error(
+      "[getOrCreateBackendUser] Failed to sync user",
+      JSON.stringify({ status: res.status, url: targetUrl, body: errorPayload }).slice(0, 500)
+    );
     throw new Error("Failed to sync user with backend");
   }
 
