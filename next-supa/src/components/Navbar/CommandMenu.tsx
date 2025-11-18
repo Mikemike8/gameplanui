@@ -4,6 +4,7 @@ import { Command } from "cmdk";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { FiEye, FiLink, FiLogOut, FiPhone, FiPlus } from "react-icons/fi";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { AUTH_ROUTES } from "@/lib/auth-routes";
 
 export const CommandMenu = ({
   open,
@@ -28,7 +29,7 @@ export const CommandMenu = ({
 
   const logout = () => {
     // Auth0 logout endpoint
-    window.location.href = "/api/auth/logout";
+    window.location.href = AUTH_ROUTES.logout;
   };
 
   return (

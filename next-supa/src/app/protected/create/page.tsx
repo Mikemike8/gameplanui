@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import { getOrCreateBackendUser } from "@/lib/workspaces";
 import { CreateWorkspaceForm } from "@/components/Workspace/CreateWorkspaceForm";
 import type { Auth0User } from "@/lib/workspaces";
+import { buildAuthRoute } from "@/lib/auth-routes";
 
 export default async function CreatePage() {
   const session = await auth0.getSession();
   if (!session?.user) {
-    redirect("/auth/login?returnTo=/protected/create");
+    redirect(buildAuthRoute("login", { returnTo: "/protected/create" }));
   }
 
   const backendUser = await getOrCreateBackendUser(session.user as Auth0User);

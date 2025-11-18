@@ -59,14 +59,19 @@ Create `next-supa/.env.local` for local development (the repo now ships `next-su
 
 ```
 AUTH0_SECRET=...
-AUTH0_BASE_URL=http://localhost:3000         # or https://gameplanuipro.onrender.com
-AUTH0_ISSUER_BASE_URL=https://YOUR-TENANT.us.auth0.com
+AUTH0_DOMAIN=YOUR-TENANT.us.auth0.com
 AUTH0_CLIENT_ID=...
 AUTH0_CLIENT_SECRET=...
 
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000    # override with https://ggameplan-backend.onrender.com in prod
 API_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used for invite links during SSR
+# NEXT_PUBLIC_SITE_URL / APP_BASE_URL default to http://localhost:3000 locally
+# and Render's hostname when deployed. Uncomment to override explicitly.
+# NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# APP_BASE_URL=http://localhost:3000
+# Auth routes default to /api/auth; set these to switch to /auth/*
+# NEXT_PUBLIC_AUTH_ROUTE_PREFIX=/auth
+# AUTH_ROUTE_PREFIX=/auth
 ```
 
 The backend uses `Backend/.env` (copy from `Backend/.env.example`) to source its Postgres credentials locally and on Render. Minimum keys:
@@ -98,11 +103,12 @@ DB_PASSWORD=...
    npm install
    npm run dev
    ```
-4. Visit `http://localhost:3000`. Auth0 must have `http://localhost:3000` listed as an allowed callback/logout URL.
+4. Visit `http://localhost:3000`. Auth0 must allow `http://localhost:3000/api/auth/callback`
+   (and your production equivalent) as callback/logout URLs.
 
 ### Render deployment recap
 
-- **Frontend**: `NEXT_PUBLIC_API_URL` and `API_URL` must point to the backend Render service (e.g., `https://ggameplan-backend.onrender.com`). Keep `NEXT_PUBLIC_SITE_URL` in sync with your Render custom domain.
+- **Frontend**: `NEXT_PUBLIC_API_URL` and `API_URL` must point to the backend Render service (e.g., `https://ggameplan-backend.onrender.com`). The site/App base URL now falls back to Render’s hostname (or `http://localhost:3000` in dev); override `NEXT_PUBLIC_SITE_URL`/`APP_BASE_URL` only if you use a custom domain.
 - **Backend**: Set `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_PORT` (or an explicit `DATABASE_URL`) in Render → Environment. The FastAPI service runs via `uvicorn main:fastapi_app --host 0.0.0.0 --port ${PORT}`.
 - **Local verification**: before pushing, run through Auth → Onboarding → Chat → Events → Files → Invite flows locally to ensure both services stay in lockstep.
 
@@ -207,7 +213,7 @@ When developing new features, verify:
 2. Creating a workspace populates channels and routes to chat.
 3. File upload + preview + download link works against Render backend.
 4. Event creation & RSVP flows behave the same in embedded and page variants.
-5. Invite modal displays the Render frontend URL and copy buttons.
+5. Invite modal displays whichever frontend URL was resolved (Render hostname or localhost) and copy buttons.
 6. Search modal updates results dynamically and handles empty states gracefully.
 
 ---
@@ -218,7 +224,7 @@ Frontend service:
 - Node: 20.11 (set via `NODE_VERSION` env).
 - Build command: `npm ci && npm run build`.
 - Start command: `npm run start`.
-- Env: set `NEXT_PUBLIC_API_URL`, `API_URL`, Auth0 keys, `NEXT_PUBLIC_SITE_URL=https://gameplanuipro.onrender.com`.
+- Env: set `NEXT_PUBLIC_API_URL`, `API_URL`, Auth0 keys. Only override `NEXT_PUBLIC_SITE_URL`/`APP_BASE_URL` if you use a custom domain—the defaults already switch between Render and localhost.
 
 Backend service (FastAPI) – summarized for devs:
 - Root directory: `Backend`.

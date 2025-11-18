@@ -1,5 +1,7 @@
 "use client";
 
+import { buildAuthRoute } from "@/lib/auth-routes";
+
 export function LoginForm() {
   return (
     <div className="space-y-6">
@@ -12,7 +14,7 @@ export function LoginForm() {
         {/* Auth0 Sign In Button */}
 
         <a
-          href="/api/auth/login"
+          href={buildAuthRoute("login")}
           className="flex w-full items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
         >
           Sign In with Auth0
@@ -23,7 +25,7 @@ export function LoginForm() {
           <span className="text-sm text-gray-600">Don&apos;t have an account? </span>
 
           <a
-            href="/auth/login?screen_hint=signup"
+            href={buildAuthRoute("login", { screen_hint: "signup" })}
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
           >
             Sign Up

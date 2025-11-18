@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CopyInviteButton } from "@/components/Workspace/CopyInviteButton";
+import { buildAuthRoute } from "@/lib/auth-routes";
 
 interface SettingsPageProps {
   params: Promise<{ workspaceId: string }>;
@@ -26,7 +27,9 @@ export default async function WorkspaceSettingsPage({ params }: SettingsPageProp
 
   const session = await auth0.getSession();
   if (!session?.user) {
-    redirect(`/auth/login?returnTo=/protected/workspace/${workspaceId}/settings`);
+    redirect(
+      buildAuthRoute("login", { returnTo: `/protected/workspace/${workspaceId}/settings` })
+    );
   }
 
   const backendUser = await getOrCreateBackendUser(session.user as Auth0User);

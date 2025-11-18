@@ -51,6 +51,7 @@ import { CalendarPanel } from "@/components/Workspace/CalendarPanel";
 import { TeamSnapshotPanel } from "@/components/Workspace/TeamSnapshotPanel";
 import { TeamEventsPanel } from "@/components/Events/TeamEventsPanel";
 import { cn } from "@/lib/utils";
+import { AUTH_ROUTES } from "@/lib/auth-routes";
 import { deleteWorkspace as deleteWorkspaceApi } from "@/lib/workspaces";
 import { CopyInviteButton } from "@/components/Workspace/CopyInviteButton";
 import { NotificationsPanel } from "@/components/Notifications/NotificationsPanel";
@@ -1136,7 +1137,7 @@ export default function TeamChannelInterface({
 
           <button
             onClick={() => {
-              window.location.href = "/auth/logout";
+              window.location.href = AUTH_ROUTES.logout;
             }}
             className="p-2 hover:bg-sidebar-accent rounded text-muted-foreground hover:text-destructive"
             title="Sign out"

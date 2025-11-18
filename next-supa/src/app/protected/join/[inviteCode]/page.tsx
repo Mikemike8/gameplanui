@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
 import { getOrCreateBackendUser, joinWorkspaceServer } from "@/lib/workspaces";
+import { buildAuthRoute } from "@/lib/auth-routes";
 
 interface JoinByInvitePageProps {
   params: { inviteCode: string };
@@ -11,7 +12,7 @@ export default async function JoinByInvitePage({ params }: JoinByInvitePageProps
   const session = await auth0.getSession();
 
   if (!session?.user) {
-    redirect(`/auth/login?returnTo=/protected/spaces/join/${params.inviteCode}`);
+    redirect(buildAuthRoute("login", { returnTo: `/protected/spaces/join/${params.inviteCode}` }));
   }
 
   const backendUser = await getOrCreateBackendUser(session.user);

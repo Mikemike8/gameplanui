@@ -1,5 +1,6 @@
 // app/page.tsx (or wherever your Home component is)
 import { auth0 } from "@/lib/auth0"; // Updated import to use the new client
+import { buildAuthRoute } from "@/lib/auth-routes";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button"; // Assuming shadcn/ui is installed
 import {
@@ -28,10 +29,10 @@ export default async function Home() {
         </CardHeader>
         <CardContent className="grid gap-4">
           <Button asChild>
-            <a href="/auth/login?screen_hint=signup">Sign Up</a>
+            <a href={buildAuthRoute("login", { screen_hint: "signup" })}>Sign Up</a>
           </Button>
           <Button variant="outline" asChild>
-            <a href="/auth/login">Log In</a>
+            <a href={buildAuthRoute("login")}>Log In</a>
           </Button>
         </CardContent>
         <CardFooter className="flex justify-center">

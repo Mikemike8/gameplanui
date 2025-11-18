@@ -19,13 +19,18 @@ npm install
 Create `.env.local` in `next-supa` with:
 ```
 AUTH0_SECRET=...
-AUTH0_BASE_URL=http://localhost:3000
-AUTH0_ISSUER_BASE_URL=https://YOUR-TENANT.us.auth0.com
+AUTH0_DOMAIN=YOUR-TENANT.us.auth0.com
 AUTH0_CLIENT_ID=...
 AUTH0_CLIENT_SECRET=...
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 API_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# NEXT_PUBLIC_SITE_URL / APP_BASE_URL fall back to http://localhost:3000 locally
+# and Render's external URL in production. Uncomment to override explicitly.
+# NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# APP_BASE_URL=http://localhost:3000
+# Auth routes default to /api/auth. Uncomment if you need to switch to /auth/*
+# NEXT_PUBLIC_AUTH_ROUTE_PREFIX=/auth
+# AUTH_ROUTE_PREFIX=/auth
 ```
 Adjust `NEXT_PUBLIC_API_URL`/`API_URL` to the Render backend when testing against prod data.
 
@@ -33,12 +38,14 @@ Adjust `NEXT_PUBLIC_API_URL`/`API_URL` to the Render backend when testing agains
 ```bash
 npm run dev
 ```
-Visit http://localhost:3000, log in via Auth0, and you’ll land in `/protected`.
+Visit http://localhost:3000, log in via Auth0, and you’ll land in `/protected`. Make sure the Auth0
+application allows `http://localhost:3000/api/auth/callback` (plus your production equivalent).
 
 ## 5. Deploying the frontend
 If you want your own deployment (Vercel, Render, etc.):
-1. Ensure the Auth0 application has callback/logout URLs for your domain.
-2. Set the same environment variables in the hosting platform (especially `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SITE_URL`).
+1. Ensure the Auth0 application has callback/logout URLs for your domain
+   (e.g., `http://localhost:3000/api/auth/callback`, `https://<your-domain>/api/auth/callback`).
+2. Set the same environment variables in the hosting platform (especially `NEXT_PUBLIC_API_URL` and any overrides for `NEXT_PUBLIC_SITE_URL`/`APP_BASE_URL` if you use a custom domain).
 3. Build/start commands:
    ```bash
    npm run build
@@ -52,7 +59,7 @@ If you want your own deployment (Vercel, Render, etc.):
 ## 7. Common gotchas
 - **Duplicate messages**: already fixed; make sure you’re on the latest commit.
 - **Workspace settings scroll**: global CSS now allows scrolling.
-- **Invite links**: they rely on `NEXT_PUBLIC_SITE_URL` during SSR; set it to your public domain before deploying.
+- **Invite links**: they rely on the resolved site URL during SSR. It now defaults to Render’s hostname (or `http://localhost:3000` in dev), but override `NEXT_PUBLIC_SITE_URL` if you need a custom domain.
 - **Render cold start**: backend sleeps when idle, so first request might take a few seconds.
 
 That’s it! Reach out in the dev Slack if you hit issues.

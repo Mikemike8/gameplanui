@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
+import { AUTH_ROUTES } from "@/lib/auth-routes";
 
 interface AccountToggleProps {
   email: string; // Fallback if Auth0 user not loaded
@@ -16,7 +17,7 @@ export const AccountToggle: React.FC<AccountToggleProps> = ({ email }) => {
 
   // --- Logout handler ---
   const logout = () => {
-    router.push("/auth/logout");
+    router.push(AUTH_ROUTES.logout);
   };
 
   // --- Avatar & Name ---

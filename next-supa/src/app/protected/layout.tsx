@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
 import { getOrCreateBackendUser, type Auth0User } from "@/lib/workspaces";
 import { UserProvider } from "@/context/UserContext";
+import { buildAuthRoute } from "@/lib/auth-routes";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const session = await auth0.getSession();
 
   if (!session?.user) {
-    redirect("/auth/login");
+    redirect(buildAuthRoute("login"));
   }
 
   // Sync backend user
