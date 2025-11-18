@@ -4,12 +4,21 @@ import { auth0 } from "@/lib/auth0";
 import { getOrCreateBackendUser, fetchMyWorkspaces, type Auth0User } from "@/lib/workspaces";
 import TeamChannelInterface from "@/components/Dashboard/TeamChannelInterface";
 
+type AllowedView = "chat" | "files" | "calendar" | "team" | "events" | "notifications";
+
 interface ChatPageProps {
   params: Promise<{ workspaceId: string }>;
+  searchParams?: Promise<{ view?: string } | { view?: string }>;
 }
 
-export default async function ChatPage({ params }: ChatPageProps) {
+export default async function ChatPage({ params, searchParams }: ChatPageProps) {
   const { workspaceId } = await params;
+  const resolvedSearch = searchParams ? await searchParams : {};
+  const desiredView = typeof resolvedSearch?.view === "string" ? resolvedSearch.view : undefined;
+  const allowedViews: AllowedView[] = ["chat", "files", "calendar", "team", "events", "notifications"];
+  const initialMainView = allowedViews.includes(desiredView as AllowedView)
+    ? (desiredView as AllowedView)
+    : undefined;
 
   const session = await auth0.getSession();
 
@@ -27,5 +36,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
     redirect("/protected/onboarding");
   }
 
-  return <TeamChannelInterface initialWorkspaceId={workspaceId} />;
+  return (
+    <TeamChannelInterface initialWorkspaceId={workspaceId} initialMainView={initialMainView} />
+  );
 }

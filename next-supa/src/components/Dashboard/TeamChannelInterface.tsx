@@ -53,6 +53,7 @@ import { TeamEventsPanel } from "@/components/Events/TeamEventsPanel";
 import { cn } from "@/lib/utils";
 import { deleteWorkspace as deleteWorkspaceApi } from "@/lib/workspaces";
 import { CopyInviteButton } from "@/components/Workspace/CopyInviteButton";
+import { NotificationsPanel } from "@/components/Notifications/NotificationsPanel";
 
 /* Types */
 interface ApiUser {
@@ -111,8 +112,11 @@ interface Channel {
   isPrivate: boolean;
 }
 
+type MainView = "chat" | "files" | "calendar" | "team" | "events" | "notifications";
+
 interface TeamChannelInterfaceProps {
   initialWorkspaceId?: string;
+  initialMainView?: MainView;
 }
 
 interface FileAttachment {
@@ -199,7 +203,10 @@ const buildDisplayText = (text: string, attachment?: FileAttachment) => {
   return text;
 };
 
-export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannelInterfaceProps) {
+export default function TeamChannelInterface({
+  initialWorkspaceId,
+  initialMainView,
+}: TeamChannelInterfaceProps) {
   const { user: auth0User, isLoading: auth0Loading } = useAuth0();
   const router = useRouter();
 
@@ -224,9 +231,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
-  const [mainView, setMainView] = useState<"chat" | "files" | "calendar" | "team" | "events">(
-    "chat"
-  );
+  const [mainView, setMainView] = useState<MainView>(initialMainView ?? "chat");
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -245,11 +250,12 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageScrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const prevChannelIdRef = useRef<string | null>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const emojis = ["👍", "❤️", "😂", "🎉", "🚀", "👀", "🔥", "💯"];
   const pinnedMessages = messages.filter((m) => m.isPinned);
-  const toggleMainView = useCallback((view: "files" | "calendar" | "team" | "events") => {
+  const toggleMainView = useCallback((view: Exclude<MainView, "chat">) => {
     setMainView((current) => (current === view ? "chat" : view));
     setShowPinnedMessages(false);
   }, []);
@@ -609,9 +615,19 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
   }, [currentChannel, loadMessages]);
 
   useEffect(() => {
-    setMainView("chat");
-    setShowPinnedMessages(false);
+    if (!currentChannel?.id) return;
+    if (prevChannelIdRef.current && prevChannelIdRef.current !== currentChannel.id) {
+      setMainView("chat");
+      setShowPinnedMessages(false);
+    }
+    prevChannelIdRef.current = currentChannel.id;
   }, [currentChannel?.id]);
+
+  useEffect(() => {
+    if (initialMainView && initialMainView !== mainView) {
+      setMainView(initialMainView);
+    }
+  }, [initialMainView, mainView]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -659,7 +675,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
     setShouldAutoScroll(true);
   };
 
-  const handleMobileViewToggle = (view: "files" | "calendar" | "team" | "events") => {
+  const handleMobileViewToggle = (view: Exclude<MainView, "chat">) => {
     toggleMainView(view);
     setMobileActionsOpen(false);
   };
@@ -676,14 +692,17 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
         label: "Workspace home",
         icon: Home,
         active: mainView === "chat",
-        onClick: () => router.push(`/protected/workspace/${workspaceId}/chat`),
+        onClick: () => {
+          setMainView("chat");
+          setShowPinnedMessages(false);
+        },
       },
       {
         id: "notifications",
         label: "Notifications",
         icon: Bell,
-        active: false,
-        onClick: () => router.push("/protected/notifications"),
+        active: mainView === "notifications",
+        onClick: () => toggleMainView("notifications"),
       },
       {
         id: "files",
@@ -693,7 +712,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
         onClick: () => toggleMainView("files"),
       },
     ],
-    [mainView, router, toggleMainView, workspaceId]
+    [mainView, setMainView, setShowPinnedMessages, toggleMainView]
   );
 
   useEffect(() => {
@@ -1172,14 +1191,23 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
                 )}
               </button>
 
-              <button
-                onClick={() => toggleMainView("files")}
-                className={cn(mainAreaButtonClass(mainView === "files"), "hidden sm:block")}
-                aria-pressed={mainView === "files"}
-                title="Files"
-              >
-                <FileText className="w-5 h-5" />
-              </button>
+            <button
+              onClick={() => toggleMainView("files")}
+              className={cn(mainAreaButtonClass(mainView === "files"), "hidden sm:block")}
+              aria-pressed={mainView === "files"}
+              title="Files"
+            >
+              <FileText className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={() => toggleMainView("notifications")}
+              className={cn(mainAreaButtonClass(mainView === "notifications"), "hidden sm:block")}
+              aria-pressed={mainView === "notifications"}
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+            </button>
 
               <button
                 onClick={() => toggleMainView("events")}
@@ -1447,6 +1475,7 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
             {mainView === "calendar" && <CalendarPanel variant="embedded" />}
             {mainView === "team" && <TeamSnapshotPanel variant="embedded" />}
             {mainView === "events" && <TeamEventsPanel isAdmin variant="embedded" />}
+            {mainView === "notifications" && <NotificationsPanel variant="embedded" />}
           </div>
         )}
       </div>
@@ -1576,6 +1605,21 @@ export default function TeamChannelInterface({ initialWorkspaceId }: TeamChannel
               <div className="flex flex-col">
                 <span className="font-medium">Files & Docs</span>
                 <span className="text-xs text-muted-foreground">Open workspace files panel</span>
+              </div>
+            </button>
+            <button
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left",
+                mainView === "notifications"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:bg-muted"
+              )}
+              onClick={() => handleMobileViewToggle("notifications")}
+            >
+              <Bell className="w-5 h-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="font-medium">Notifications</span>
+                <span className="text-xs text-muted-foreground">Mentions and invites</span>
               </div>
             </button>
             <button
