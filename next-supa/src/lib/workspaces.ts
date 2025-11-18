@@ -1,7 +1,9 @@
 // src/lib/workspaces.ts
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://ggameplan-backend.onrender.com";
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://ggameplan-backend.onrender.com";
 
 /* ----------------------------- Types ----------------------------- */
 
@@ -102,9 +104,6 @@ export async function fetchMyWorkspaces(userId: string): Promise<WorkspaceSummar
 }
 
 export async function joinWorkspaceServer(userId: string, inviteCode: string) {
-  const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || "https://ggameplan-backend.onrender.com";
-
   const res = await fetch(`${API_URL}/workspaces/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
