@@ -58,6 +58,7 @@ from sqlalchemy.orm import (
     Session,
     relationship,
 )
+from sqlalchemy.exc import IntegrityError
 import socketio
 
 # ------------------------------------------------------
@@ -383,7 +384,16 @@ def get_or_create_user(request: UserCreate, db: Session = Depends(get_db)):
         avatar=request.avatar,
     )
     db.add(new_user)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.query(User).filter(User.email == request.email).first()
+        if existing:
+            return serialize_user(existing)
+        raise
+
     db.refresh(new_user)
 
     # Create personal workspace on first login
